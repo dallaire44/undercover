@@ -1,4 +1,11 @@
-import type { Claim, ClaimHistory, ClaimSummary, Policy } from "./api";
+import type {
+  Claim,
+  ClaimHistory,
+  ClaimSummary,
+  Handler,
+  Policy,
+  Step,
+} from "./api";
 
 export const queue: ClaimSummary[] = [
   {
@@ -108,15 +115,67 @@ export const history: ClaimHistory = {
   ],
 };
 
-/** Answer fetch calls with these bodies, by URL. */
+export const handlers: Handler[] = [
+  {
+    handler_id: "HND-01",
+    name: "Dana Whitfield",
+    role: "Senior Claims Handler",
+  },
+  { handler_id: "HND-02", name: "Marcus Oyelaran", role: "Claims Handler" },
+  { handler_id: "HND-03", name: "Priya Raman", role: "Claims Handler" },
+];
+
+export const longResult = "x".repeat(300);
+
+export const steps: Step[] = [
+  {
+    id: 1,
+    thread_id: "t1",
+    kind: "message",
+    text: "Agent started",
+    created_at: "2026-10-28T10:00:00+00:00",
+  },
+  {
+    id: 2,
+    thread_id: "t1",
+    kind: "tool_call",
+    text: 'get_claim({"claim_id": "CLM-1001"})',
+    created_at: "2026-10-28T10:00:01+00:00",
+  },
+  {
+    id: 3,
+    thread_id: "t1",
+    kind: "tool_result",
+    text: longResult,
+    created_at: "2026-10-28T10:00:02+00:00",
+  },
+  {
+    id: 4,
+    thread_id: "t1",
+    kind: "message",
+    text: "Agent finished",
+    created_at: "2026-10-28T10:00:03+00:00",
+  },
+];
+
+/**
+ * Answer fetch calls by URL. A key is a URL for a GET, or "POST /url". A value
+ * is the body, or a function that gets the request and returns the body or a Response.
+ */
 export function stubFetch(routes: Record<string, unknown>): typeof fetch {
-  return (input) => {
+  return (input, init) => {
     const url = input instanceof Request ? input.url : input.toString();
-    const body = routes[url];
+    const key =
+      init?.method && init.method !== "GET" ? `${init.method} ${url}` : url;
+    const route = routes[key];
+    if (route === undefined)
+      return Promise.resolve(new Response("{}", { status: 404 }));
+    const body =
+      typeof route === "function"
+        ? (route as (i?: RequestInit) => unknown)(init)
+        : route;
     return Promise.resolve(
-      body === undefined
-        ? new Response("{}", { status: 404 })
-        : new Response(JSON.stringify(body)),
+      body instanceof Response ? body : new Response(JSON.stringify(body)),
     );
   };
 }

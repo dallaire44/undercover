@@ -1,3 +1,4 @@
+import { AgentButton } from "./AgentButton";
 import { api } from "./api";
 import type { ClaimSummary } from "./api";
 import { StatusChip, VerdictChip } from "./Chips";
@@ -52,12 +53,17 @@ function Counts({ claims }: Readonly<{ claims: ClaimSummary[] }>) {
 }
 
 export function Queue() {
-  const { data: claims, error } = useLoad(api.listClaims);
+  const { data: claims, error, reload } = useLoad(api.listClaims, () => true);
   if (error) return <p role="alert">The queue could not be loaded.</p>;
   if (!claims) return <p>Loading the queue.</p>;
   return (
     <>
       <h2>The queue</h2>
+      <AgentButton
+        label="Work the queue"
+        start={api.workQueue}
+        onStarted={reload}
+      />
       <Counts claims={claims} />
       <section className="panel">
         <table className="queue">

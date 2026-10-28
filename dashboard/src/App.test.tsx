@@ -11,6 +11,7 @@ afterEach(() => {
 
 const routes = {
   "/api/claims": queue,
+  "/api/instructions": { text: "Read the claim first." },
   "/api/claims/CLM-1001": claim,
   "/api/policies/POL-2001": policy,
   "/api/customers/CUS-3001/history": history,
@@ -35,4 +36,16 @@ it("opens a claim from its hash link, and goes back to the queue", async () => {
     window.location.hash = "#/";
   });
   expect(await screen.findByText("CLM-1002")).toBeDefined();
+});
+
+it("opens the agent's instructions from the header", async () => {
+  vi.stubGlobal("fetch", stubFetch(routes));
+  window.location.hash = "#/instructions";
+  render(<App />);
+  expect(await screen.findByText("Read the claim first.")).toBeDefined();
+  expect(
+    screen
+      .getByRole("link", { name: "Agent instructions" })
+      .getAttribute("href"),
+  ).toBe("#/instructions");
 });

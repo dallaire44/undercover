@@ -241,3 +241,71 @@ ul.plain {
   margin: 0;
   white-space: pre-wrap;
 }
+
+nav {
+  margin-left: auto;
+}
+
+button {
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 10px;
+  background: var(--waiting);
+  color: var(--on-waiting);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+select {
+  padding: 6px 10px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--band);
+  color: var(--ink);
+  font: inherit;
+}
+
+.action {
+  margin: 0 0 16px;
+}
+
+ol.steps {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.step {
+  padding: 8px 0;
+}
+
+.step p,
+.step pre {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.step .muted {
+  font-size: 0.85rem;
+}
+
+.step.tool_call p,
+.step.tool_result pre,
+.step.tool_result p {
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.85rem;
+}
+
+pre.instructions {
+  margin: 0;
+  white-space: pre-wrap;
+  font-family: "JetBrains Mono", ui-monospace, monospace;
+  font-size: 0.9rem;
+}

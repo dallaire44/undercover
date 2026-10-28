@@ -1,4 +1,11 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { queue, stubFetch } from "./fixtures";
 import { Queue } from "./Queue";
@@ -6,6 +13,7 @@ import { Queue } from "./Queue";
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
+  vi.useRealTimers();
 });
 
 function showQueue() {
@@ -79,4 +87,33 @@ it("says when the queue could not be loaded", async () => {
   expect((await screen.findByRole("alert")).textContent).toContain(
     "could not be loaded",
   );
+});
+
+it("works the queue when asked", async () => {
+  const work = vi.fn(() => ["CLM-1001"]);
+  vi.stubGlobal(
+    "fetch",
+    stubFetch({ "/api/claims": queue, "POST /api/queue/agent": work }),
+  );
+  render(<Queue />);
+  await screen.findByText("CLM-1001");
+  fireEvent.click(screen.getByRole("button", { name: "Work the queue" }));
+  await vi.waitFor(() => {
+    expect(work).toHaveBeenCalledOnce();
+  });
+});
+
+it("refreshes every two seconds", async () => {
+  vi.useFakeTimers({ shouldAdvanceTime: true });
+  let calls = 0;
+  const growing = () => {
+    calls += 1;
+    return calls < 2 ? queue : queue.map((c) => ({ ...c, status: "decided" }));
+  };
+  vi.stubGlobal("fetch", stubFetch({ "/api/claims": growing }));
+  render(<Queue />);
+  await screen.findByText("CLM-1001");
+  expect(count("Decided")).toBe("2");
+  await act(() => vi.advanceTimersByTimeAsync(2000));
+  expect(count("Decided")).toBe("3");
 });

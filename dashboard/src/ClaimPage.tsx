@@ -1,15 +1,22 @@
 import { useCallback } from "react";
+import { AgentButton } from "./AgentButton";
 import { api } from "./api";
 import { StatusChip } from "./Chips";
 import { HistoryPanel, PolicyPanel } from "./CustomerPanels";
 import { DecisionPanel } from "./DecisionPanel";
 import { Facts } from "./Facts";
 import { date, humanize, money } from "./format";
+import { PaymentPanel } from "./PaymentPanel";
+import { Steps } from "./Steps";
 import { useLoad } from "./useLoad";
 
 export function ClaimPage({ id }: Readonly<{ id: string }>) {
   const load = useCallback(() => api.getClaim(id), [id]);
-  const { data: claim, error } = useLoad(load);
+  const {
+    data: claim,
+    error,
+    reload,
+  } = useLoad(load, (c) => c.status === "in_progress");
   if (error) return <p role="alert">Claim {id} could not be loaded.</p>;
   if (!claim) return <p>Loading the claim.</p>;
   return (
@@ -39,7 +46,16 @@ export function ClaimPage({ id }: Readonly<{ id: string }>) {
           ]}
         />
       </section>
+      {claim.status === "waiting" && (
+        <AgentButton
+          label="Run the agent"
+          start={() => api.startAgent(id)}
+          onStarted={reload}
+        />
+      )}
+      <Steps claimId={id} active={claim.status === "in_progress"} />
       <DecisionPanel claim={claim} />
+      <PaymentPanel claim={claim} onSignedOff={reload} />
       <section className="panel" aria-labelledby="story-title">
         <h3 id="story-title">The customer's story</h3>
         <p>{claim.story}</p>
