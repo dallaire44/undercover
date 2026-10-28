@@ -54,7 +54,7 @@ def seed(conn: sqlite3.Connection) -> None:
 
 def connect() -> sqlite3.Connection:
     """Open the database, creating and seeding it on first use."""
-    conn = sqlite3.connect(db_path())
+    conn = sqlite3.connect(db_path(), check_same_thread=False)
     conn.row_factory = sqlite3.Row
     conn.executescript(SCHEMA)
     if conn.execute("SELECT 1 FROM claims").fetchone() is None:

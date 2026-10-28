@@ -1,3 +1,5 @@
+from concurrent.futures import ThreadPoolExecutor
+
 from backend import db
 from backend.seed import reset
 
@@ -75,3 +77,14 @@ def test_reset_twice_leaves_25_waiting_claims(tmp_path, monkeypatch):
         "SELECT COUNT(*) FROM claims WHERE status = 'waiting'"
     ).fetchone()[0]
     assert waiting == 25
+
+
+def test_a_connection_can_move_between_threads(tmp_path, monkeypatch):
+    """FastAPI opens a request's connection in one thread and uses it in another."""
+    monkeypatch.setenv("UNDERCOVER_DB", str(tmp_path / "threads.db"))
+    conn = db.connect()
+    with ThreadPoolExecutor() as pool:
+        count = pool.submit(
+            lambda: conn.execute("SELECT COUNT(*) FROM claims").fetchone()[0]
+        )
+        assert count.result() == 25

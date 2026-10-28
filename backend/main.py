@@ -4,12 +4,13 @@ import sqlite3
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
 
-from backend import records, rules, steps
+from backend import records, rules, runs, steps
 from backend.db import DATA, get_db
 from backend.models import (
     Claim,
+    ClaimCore,
     ClaimHistory,
     ClaimSummary,
     DecisionIn,
@@ -114,3 +115,21 @@ def list_steps(claim_id: str, db: Db) -> list[Step]:
 def add_step(claim_id: str, body: StepIn, db: Db) -> Step:
     """Add one step the agent took on a claim."""
     return steps.add_step(db, claim_id, body)
+
+
+@app.post("/api/claims/{claim_id}/agent", operation_id="start_agent", status_code=202)
+def start_agent(claim_id: str, tasks: BackgroundTasks, db: Db) -> ClaimCore:
+    """Start the agent on a waiting claim, which runs in the background."""
+    found(records.get_claim(db, claim_id), "Claim")
+    if not runs.start(claim_id):
+        raise HTTPException(status_code=409, detail="The claim is not waiting")
+    tasks.add_task(runs.work_claim, claim_id)
+    return found(records.get_claim(db, claim_id), "Claim")
+
+
+@app.post("/api/queue/agent", operation_id="work_queue", status_code=202)
+def work_queue(tasks: BackgroundTasks) -> list[str]:
+    """Run the agent on every waiting claim in turn, in the background."""
+    waiting = runs.waiting_claims()
+    tasks.add_task(runs.work_queue)
+    return waiting

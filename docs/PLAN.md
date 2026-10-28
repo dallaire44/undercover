@@ -144,16 +144,16 @@ Success criteria:
 
 Success criteria:
 
-- [ ] `uv run pytest agent` passes with a stub model (`GenericFakeChatModel`) and the backend through `TestClient`. No test calls a real model.
-- [ ] A stub run on CLM-1001 that reads the claim, policy, history and wording, approves 420.00 and pays leaves the claim `decided`, with a step for every message, tool call and tool result.
-- [ ] A stub run on CLM-1003 that approves 3,750.00 and then calls `pay_claim` leaves it `awaiting_sign_off` with no payment. The step trail shows the 409 message returned to the model.
-- [ ] A stub run that ends without a decision puts the claim back to `waiting`, with a step that says so.
-- [ ] `POST /api/claims/CLM-1001/agent` returns 202 and the claim moves to `in_progress` (agent stubbed in the backend test). It returns 409 if the claim isn't `waiting`.
-- [ ] `POST /api/queue/agent` runs the stubbed agent on every waiting claim in turn (backend test).
-- [ ] The agent's system prompt is the text from `GET /api/instructions` (test).
-- [ ] **Real model.** With `npm run dev:backend` running, `uv run -m agent CLM-1001` ends with CLM-1001 `decided`. `GET /api/claims/CLM-1001` shows a decision, a payout, a reason of two or three sentences and a policy section, and `GET /api/claims/CLM-1001/steps` lists the agent's steps.
-- [ ] **Real model.** `uv run -m agent CLM-1003` ends with a decision. If the agent approves over $1,000, the claim is `awaiting_sign_off` and has no payment.
-- [ ] `npm run check:python` passes with coverage at or above 80%.
+- [x] `uv run pytest agent` passes with a stub model (`GenericFakeChatModel`) and the backend through `TestClient`. No test calls a real model.
+- [x] A stub run on CLM-1001 that reads the claim, policy, history and wording, approves 420.00 and pays leaves the claim `decided`, with a step for every message, tool call and tool result.
+- [x] A stub run on CLM-1003 that approves 3,750.00 and then calls `pay_claim` leaves it `awaiting_sign_off` with no payment. The step trail shows the 409 message returned to the model.
+- [x] A stub run that ends without a decision puts the claim back to `waiting`, with a step that says so.
+- [x] `POST /api/claims/CLM-1001/agent` returns 202 and the claim moves to `in_progress` (agent stubbed in the backend test). It returns 409 if the claim isn't `waiting`.
+- [x] `POST /api/queue/agent` runs the stubbed agent on every waiting claim in turn (backend test).
+- [x] The agent's system prompt is the text from `GET /api/instructions` (test).
+- [x] **Real model.** With `npm run dev:backend` running, `uv run -m agent CLM-1001` ends with CLM-1001 `decided`. `GET /api/claims/CLM-1001` shows a decision, a payout, a reason of two or three sentences and a policy section, and `GET /api/claims/CLM-1001/steps` lists the agent's steps.
+- [x] **Real model.** `uv run -m agent CLM-1003` ends with a decision. If the agent approves over $1,000, the claim is `awaiting_sign_off` and has no payment.
+- [x] `npm run check:python` passes with coverage at or above 80%.
 
 ## Phase 4: the dashboard, the queue and the claim
 
