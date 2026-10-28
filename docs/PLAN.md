@@ -2,7 +2,7 @@
 
 This plan builds the pilot in `docs/SPEC.md` on the skeleton described in `docs/STATUS.md`. It follows `docs/TECH_STACK.md`, `docs/CODE_STANDARDS.md`, `docs/PROCESS.md` and `docs/BRAND.md`.
 
-Phases 1 to 6 built the pilot. Phase 7 was added afterwards, when `docs/SPEC.md` gained a switch between light and dark screens. Phase 8 adds the color-blind mode that `docs/ACCESSIBILITY.md` describes. Phase 9 adds each claim's decision and payout to the queue, when `docs/SPEC.md` asked for them.
+Phases 1 to 6 built the pilot. Phase 7 was added afterwards, when `docs/SPEC.md` gained a switch between light and dark screens. Phase 8 adds the color-blind mode that `docs/ACCESSIBILITY.md` describes.
 
 ## The approach
 
@@ -97,7 +97,7 @@ Success criteria:
 
 ## Phase 2: decisions, payments, sign-off and steps (backend)
 
-**Builds:** `record_decision`, `pay_claim`, `sign_off`, `add_step` and `list_steps`, with the payment rules above.
+**Builds:** `record_decision`, `pay_claim`, `sign_off`, `add_step` and `list_steps`, with the payment rules above. `ClaimSummary` also gains `decision` and `payout`: `list_claims` reads them from the decisions table with a left join, so both are `null` until the agent records a decision. They are outputs, so the "no optional inputs" rule is unaffected.
 
 **Why now:** this is the core of the spec. Testing these rules on their own, before any model is involved, proves that the system blocks an over-limit payment however the agent behaves.
 
@@ -112,6 +112,7 @@ Success criteria:
 - [ ] Declining or referring moves the claim to `decided` with a payout of 0. A second `record_decision` on a decided claim returns 409.
 - [ ] `record_decision` returns 422 for a decision other than `approve`, `decline` or `refer`, or for a negative payout.
 - [ ] `add_step` stores a step with its `thread_id`, `kind` (`message`, `tool_call` or `tool_result`) and `text`. `list_steps` returns the claim's steps oldest first.
+- [ ] `list_claims` returns `decision` and `payout` as `null` for an undecided claim, and the decision and payout once one is recorded.
 - [ ] `npm run check:python` passes with coverage at or above 80%.
 
 ## Phase 3: the UnderCover Agent
@@ -145,7 +146,7 @@ Success criteria:
 **Builds:** the dashboard in UnderCover's brand, replacing the health page.
 
 - A header with the UnderCover name and a short tagline in Instrument Serif. Instrument Sans for the text and JetBrains Mono for claim ids and amounts, loaded from Google Fonts.
-- **The queue:** a count of claims in each state, and a table of claims with their id, customer, type, amount claimed, submitted date and a status chip in the state's color.
+- **The queue:** a count of claims in each state, and a table with the eight columns in `docs/SPEC.md`: Claim, Customer (with the summary beneath), Type, Submitted, Claimed, Status, Decision and Payout. The Status cell is a chip in the state's color. The Decision cell reuses `VerdictChip`, and the Payout cell uses `money()` right-aligned like Claimed. A decline or referral shows `$0.00`, as on the claim page. With no decision yet, both cells show a muted dash.
 - **The claim:** the summary, the story, the items, the documents, the policy (plan, add-ons, trip dates, trip cost and travelers) and the claim history. When there's a decision, it also shows the decision, the payout, the reason, the policy section, the payment and any sign-off.
 - Light and dark modes that follow the system setting, with the brand's page backgrounds and rounded panels without outlines. Amounts are formatted as $1,250.00.
 - Hash links such as `#/claims/CLM-1001`, so a claim can be opened directly. This needs no router library.
@@ -156,10 +157,11 @@ Success criteria:
 
 Success criteria:
 
-- [ ] `vitest` tests cover the queue table, the state counts, the claim view with and without a decision, and money formatting.
+- [ ] `vitest` tests cover the queue table, a decided row showing its decision chip and payout, an undecided row showing a dash in both columns, the state counts, the claim view with and without a decision, and money formatting.
 - [ ] Playwright e2e: the queue shows 25 claims, and each state's count matches the chips in the table (the e2e tests share one database and run in parallel, so a fixed "Waiting 25" would depend on test order). Clicking CLM-1001 shows Maya Patel's story, its 3 items with amounts such as $245.00, and the Premium plan.
+- [ ] Playwright e2e: after the test approves CLM-1014 for $650.00 through the API, its queue row shows "Approved" and "$650.00".
 - [ ] Playwright e2e: after the test records a decision on a claim through the API, that claim's page shows the decision, payout, reason and policy section.
-- [ ] Checked in the browser, in light and dark mode (with a Playwright script: the Playwright MCP server was added mid-session, so its tools were not loaded): the queue and claim pages use the brand's fonts and colors, panels are rounded with no outline, there are no one-edge borders and no thin line across the top of the page, and screenshots are reviewed.
+- [ ] Checked in the browser, in light and dark mode (with a Playwright script: the Playwright MCP server was added mid-session, so its tools were not loaded): the queue and claim pages use the brand's fonts and colors, panels are rounded with no outline, there are no one-edge borders and no thin line across the top of the page, and screenshots are reviewed. The queue is also checked at 1280 px and 1541 px wide: all eight columns fit, and only Customer wraps.
 - [ ] `npm run check:ts` passes with coverage at or above 80%. `npm run e2e` passes.
 
 ## Phase 5: the dashboard, the agent at work
@@ -234,28 +236,9 @@ Success criteria:
 - [ ] `vitest`: `ModeSwitch` works for both modes. It shows its label, `aria-pressed` matches the attribute on `<html>`, and clicking it flips the attribute and saves the choice under its own key, without touching the other mode.
 - [ ] `vitest`: each decision chip renders its symbol (check, cross or arrow) with `aria-hidden="true"`, and the chip's accessible name is still just its word, such as "Approved".
 - [ ] Playwright e2e: with nothing saved, the mode is off and the brand is unchanged. A Waiting chip is Cerulean `rgb(17, 138, 178)` with white text, a Decided chip is Sea Green, and no symbol is visible.
-- [ ] Playwright e2e: turning on "Color-blind mode" changes the chips to the colors in `docs/ACCESSIBILITY.md`. Waiting becomes `rgb(0, 114, 178)` with white text, and Decided becomes `rgb(0, 158, 115)` with black text. A decision chip shows its symbol, and the payment-on-hold box becomes `rgb(204, 121, 167)` with black text, on a claim the test approves over $1,000 through the API. The mode stays on after a reload, and turning it off restores the brand colors.
+- [ ] Playwright e2e: turning on "Color-blind mode" changes the chips to the colors in `docs/ACCESSIBILITY.md`. Waiting becomes `rgb(0, 114, 178)` with white text, and Decided becomes `rgb(0, 158, 115)` with black text. A decision chip shows its symbol, on the claim page and in the queue's Decision column, and the payment-on-hold box becomes `rgb(204, 121, 167)` with black text, on a claim the test approves over $1,000 through the API. The mode stays on after a reload, and turning it off restores the brand colors.
 - [ ] Playwright e2e: the two switches are independent. With both on, the page is dark and the chips use the color-blind colors. Turning either off leaves the other as it was.
 - [ ] No flash on load, checked as in Phase 7: when the HTML finishes parsing, before the app runs, `data-colors` already holds the saved choice, or `brand` with nothing saved.
 - [ ] Checked in the browser with the Playwright MCP server if its tools are loaded, otherwise with a Playwright script: the queue, a decided claim and a claim waiting for sign-off, with the mode on, in light and in dark. The header's two switches line up with the page links. Screenshots are reviewed.
 - [ ] `docs/STATUS.md` describes the color-blind mode and points to `docs/ACCESSIBILITY.md`.
-- [ ] `npm run check` passes.
-
-## Phase 9: decision and payout on the queue
-
-**Builds:** two columns at the right end of the queue table, after Status: **Decision** (Approved, Declined or Referred) and **Payout**. A handler no longer has to open each claim to see what the agent decided and for how much.
-
-- **Backend:** `ClaimSummary` gains `decision` and `payout`. `list_claims` reads them from the decisions table with a left join, so both are `null` until the agent records a decision. They are outputs, so the "no optional inputs" rule is unaffected.
-- **Dashboard:** the Decision cell reuses `VerdictChip`, so in color-blind mode it carries its check, cross or arrow. The Payout cell uses `money()` in the right-aligned style of Claimed. A decline or referral shows `$0.00`, as on the claim page. With no decision yet, both cells show a muted dash.
-- **Tests that change:** `e2e/colors.spec.ts` finds a row's chip with `.locator(".chip")`. Decided rows now hold two chips, so those locators target the state chip.
-
-**Why this approach:** the decision is already stored. One join exposes it, and the dashboard reuses its existing chip and money format.
-
-Success criteria:
-
-- [ ] `pytest`: `list_claims` returns `decision` and `payout` as `null` for an undecided claim, and the decision and payout once one is recorded.
-- [ ] `vitest`: a decided row shows its decision chip and payout, and an undecided row shows a dash in both columns.
-- [ ] Playwright e2e: after the test approves CLM-1014 for $650.00 through the API, its queue row shows "Approved" and "$650.00". In color-blind mode, a declined claim's decision chip on the queue shows its symbol.
-- [ ] Checked in the browser (with a Playwright script; the Playwright MCP server's tools were not loaded): the queue at 1280 px and 1541 px wide, in light and dark, with color-blind mode off and on. All eight columns fit, and only Customer wraps. Screenshots are reviewed.
-- [ ] `docs/STATUS.md` mentions the new columns.
 - [ ] `npm run check` passes.

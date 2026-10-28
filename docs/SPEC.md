@@ -19,7 +19,15 @@ Our goal is to handle claims straight through, as accurately as our handlers do.
 
 ## What the team needs to see
 
-- The queue, with where each claim stands: waiting, in progress, waiting for sign-off or decided, and once the agent has decided, its decision and payout.
+- The queue, with where each claim stands: waiting, in progress, waiting for sign-off or decided. It is a table with these columns, in this order:
+  - **Claim**: the claim's id, which opens the claim.
+  - **Customer**: the customer's name, with the claim's one-line summary beneath it.
+  - **Type**: the kind of claim.
+  - **Submitted**: the date the claim was submitted.
+  - **Claimed**: the amount claimed.
+  - **Status**: waiting, in progress, waiting for sign-off or decided.
+  - **Decision**: the agent's decision, approved, declined or referred. Empty until the agent has decided.
+  - **Payout**: the payout the agent decided. A decline or a referral shows $0.00. Empty until the agent has decided.
 - Each claim in full, with the agent's decision and its reasons.
 - What the agent is doing on a claim while it works, step by step.
 - The agent's instructions, read only.
