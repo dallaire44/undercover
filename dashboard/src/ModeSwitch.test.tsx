@@ -27,7 +27,7 @@ const colorBlind = (
     storageKey="undercover-colors"
   />
 );
-const button = (name: string) => screen.getByRole("button", { name });
+const button = (name: string) => screen.getByRole("switch", { name });
 const html = document.documentElement.dataset;
 
 it("is off while the page is in the other mode", () => {
@@ -39,8 +39,8 @@ it("is off while the page is in the other mode", () => {
       {colorBlind}
     </>,
   );
-  expect(button("Dark mode").getAttribute("aria-pressed")).toBe("false");
-  expect(button("Color-blind mode").getAttribute("aria-pressed")).toBe("false");
+  expect(button("Dark mode").getAttribute("aria-checked")).toBe("false");
+  expect(button("Color-blind mode").getAttribute("aria-checked")).toBe("false");
 });
 
 it("is on while the page is in its mode", () => {
@@ -52,8 +52,8 @@ it("is on while the page is in its mode", () => {
       {colorBlind}
     </>,
   );
-  expect(button("Dark mode").getAttribute("aria-pressed")).toBe("true");
-  expect(button("Color-blind mode").getAttribute("aria-pressed")).toBe("true");
+  expect(button("Dark mode").getAttribute("aria-checked")).toBe("true");
+  expect(button("Color-blind mode").getAttribute("aria-checked")).toBe("true");
 });
 
 it("switches dark mode on and off, and remembers it", () => {
@@ -62,7 +62,7 @@ it("switches dark mode on and off, and remembers it", () => {
   fireEvent.click(button("Dark mode"));
   expect(html.theme).toBe("dark");
   expect(localStorage.getItem("undercover-theme")).toBe("dark");
-  expect(button("Dark mode").getAttribute("aria-pressed")).toBe("true");
+  expect(button("Dark mode").getAttribute("aria-checked")).toBe("true");
   fireEvent.click(button("Dark mode"));
   expect(html.theme).toBe("light");
   expect(localStorage.getItem("undercover-theme")).toBe("light");
@@ -85,4 +85,14 @@ it("switches color-blind mode under its own key, without touching dark mode", ()
   fireEvent.click(button("Color-blind mode"));
   expect(html.colors).toBe("brand");
   expect(localStorage.getItem("undercover-colors")).toBe("brand");
+});
+
+it("draws a dot that is hidden from screen readers", () => {
+  html.theme = "light";
+  const { container } = render(dark);
+  expect(container.querySelector(".track")?.getAttribute("aria-hidden")).toBe(
+    "true",
+  );
+  expect(container.querySelector(".track .dot")).not.toBeNull();
+  expect(button("Dark mode").tagName).toBe("BUTTON");
 });

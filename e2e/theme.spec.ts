@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 const LIGHT = "rgb(240, 244, 245)";
 const DARK = "rgb(4, 35, 46)";
 const switchButton = (page: import("@playwright/test").Page) =>
-  page.getByRole("button", { name: "Dark mode" });
+  page.getByRole("switch", { name: "Dark mode" });
 
 test.describe("a computer set to light", () => {
   test.use({ colorScheme: "light" });
@@ -11,15 +11,15 @@ test.describe("a computer set to light", () => {
   test("starts light, switches to dark, and keeps it", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("body")).toHaveCSS("background-color", LIGHT);
-    await expect(switchButton(page)).toHaveAttribute("aria-pressed", "false");
+    await expect(switchButton(page)).toHaveAttribute("aria-checked", "false");
     await switchButton(page).click();
     await expect(page.locator("body")).toHaveCSS("background-color", DARK);
-    await expect(switchButton(page)).toHaveAttribute("aria-pressed", "true");
+    await expect(switchButton(page)).toHaveAttribute("aria-checked", "true");
     await page.reload();
     await expect(page.locator("body")).toHaveCSS("background-color", DARK);
     await page.getByRole("link", { name: "Agent instructions" }).click();
     await expect(page.locator("body")).toHaveCSS("background-color", DARK);
-    await expect(switchButton(page)).toHaveAttribute("aria-pressed", "true");
+    await expect(switchButton(page)).toHaveAttribute("aria-checked", "true");
   });
 });
 
@@ -29,12 +29,12 @@ test.describe("a computer set to dark", () => {
   test("starts dark, and remembers a choice of light", async ({ page }) => {
     await page.goto("/");
     await expect(page.locator("body")).toHaveCSS("background-color", DARK);
-    await expect(switchButton(page)).toHaveAttribute("aria-pressed", "true");
+    await expect(switchButton(page)).toHaveAttribute("aria-checked", "true");
     await switchButton(page).click();
     await expect(page.locator("body")).toHaveCSS("background-color", LIGHT);
     await page.reload();
     await expect(page.locator("body")).toHaveCSS("background-color", LIGHT);
-    await expect(switchButton(page)).toHaveAttribute("aria-pressed", "false");
+    await expect(switchButton(page)).toHaveAttribute("aria-checked", "false");
   });
 });
 

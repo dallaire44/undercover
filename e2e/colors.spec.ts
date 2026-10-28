@@ -3,9 +3,9 @@ import type { Page } from "@playwright/test";
 
 const API = "http://127.0.0.1:8001";
 const colorBlindSwitch = (page: Page) =>
-  page.getByRole("button", { name: "Color-blind mode" });
+  page.getByRole("switch", { name: "Color-blind mode" });
 const darkSwitch = (page: Page) =>
-  page.getByRole("button", { name: "Dark mode" });
+  page.getByRole("switch", { name: "Dark mode" });
 
 async function decide(
   request: import("@playwright/test").APIRequestContext,
@@ -35,7 +35,7 @@ test("with nothing saved the mode is off and the brand is unchanged", async ({
 }) => {
   await decide(request, "CLM-1016", "decline", 0);
   await page.goto("/");
-  await expect(colorBlindSwitch(page)).toHaveAttribute("aria-pressed", "false");
+  await expect(colorBlindSwitch(page)).toHaveAttribute("aria-checked", "false");
   const waiting = statusChip(page, "Waiting").first();
   await expect(waiting).toHaveCSS("background-color", "rgb(17, 138, 178)");
   await expect(waiting).toHaveCSS("color", "rgb(255, 255, 255)");
@@ -74,9 +74,9 @@ test("the color-blind mode recolors the chips and shows symbols", async ({
   await expect(page.locator(".symbol")).toBeVisible();
 
   await page.reload();
-  await expect(colorBlindSwitch(page)).toHaveAttribute("aria-pressed", "true");
+  await expect(colorBlindSwitch(page)).toHaveAttribute("aria-checked", "true");
   await colorBlindSwitch(page).click();
-  await expect(colorBlindSwitch(page)).toHaveAttribute("aria-pressed", "false");
+  await expect(colorBlindSwitch(page)).toHaveAttribute("aria-checked", "false");
   await expect(hold).toHaveCSS("background-color", "rgb(239, 71, 111)");
   await expect(page.locator(".symbol")).toBeHidden();
 });

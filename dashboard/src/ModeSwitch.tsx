@@ -1,7 +1,8 @@
 import { useState } from "react";
 
 /**
- * A switch for one mode of the page. The mode is an attribute on <html>, set
+ * A slider for one mode of the page: the dot is at the left when the mode is off
+ * and at the right when it is on. The mode is an attribute on <html>, set
  * before the page draws, and the choice is remembered in the browser.
  */
 export function ModeSwitch({
@@ -29,7 +30,16 @@ export function ModeSwitch({
   };
 
   return (
-    <button type="button" aria-pressed={active} onClick={toggle}>
+    <button
+      type="button"
+      role="switch"
+      aria-checked={active}
+      className="slider"
+      onClick={toggle}
+    >
+      <span className="track" aria-hidden="true">
+        <span className="dot" />
+      </span>
       {label}
     </button>
   );
