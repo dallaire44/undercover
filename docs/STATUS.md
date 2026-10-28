@@ -28,4 +28,4 @@ If an agent run fails or ends without a decision, the claim goes back to waiting
 
 ## Commit guard
 
-`.claude/settings.json` and `.claude/hooks/guard-commit.mjs` hold a Claude Code `PreToolUse` hook, from `docs/CLAUDE_PRE_TOOL_USE_HOOK.md`. It blocks Bash commands that would skip the pre-commit checks (`--no-verify`, `git commit -n`, `LEFTHOOK=0`, `core.hooksPath`) and logs each block to `~/.claude/blocked-commits.log`. Claude Code reads it from the folder where a session starts, so start sessions at the repo root.
+`.claude/settings.json` and `.claude/hooks/guard-commit.mjs` hold a Claude Code `PreToolUse` hook, from `docs/CLAUDE_PRE_TOOL_USE_HOOK.md`. It blocks Bash commands that would skip the pre-commit checks (`--no-verify`, `git commit -n`, `LEFTHOOK=0`, `core.hooksPath`) and logs each block to `~/.claude/blocked-commits.log`. Every `git` command it sees goes to `~/.claude/guard-calls.log`, with `blocked` true or false, so a missing line means the hook was not called. Claude Code reads it from the folder where a session starts, so start sessions at the repo root.
