@@ -117,17 +117,17 @@ Success criteria:
 
 Success criteria:
 
-- [ ] `uv run pytest backend` passes, with a test for each rule below.
-- [ ] Approving CLM-1001 with a payout of 420.00 leaves it `in_progress`. `pay_claim` with 420.00 records the payment and moves it to `decided`.
-- [ ] Approving CLM-1003 with a payout of 3,750.00 moves it to `awaiting_sign_off`. `pay_claim` with 3,750.00 then returns 409 with "A payout over $1,000.00 needs a handler's sign-off", and no payment is recorded.
-- [ ] `sign_off` on CLM-1003 with `HND-01` records Dana Whitfield's sign-off and the payment, and moves it to `decided`. A second `pay_claim` returns 409.
-- [ ] `pay_claim` returns 409 on a claim that is declined, referred or has no decision, and when the amount isn't the approved payout.
-- [ ] `sign_off` returns 409 on a claim that isn't `awaiting_sign_off`, and 404 for an unknown handler.
-- [ ] Declining or referring moves the claim to `decided` with a payout of 0. A second `record_decision` on a decided claim returns 409.
-- [ ] `record_decision` returns 422 for a decision other than `approve`, `decline` or `refer`, or for a negative payout.
-- [ ] `add_step` stores a step with its `thread_id`, `kind` (`message`, `tool_call` or `tool_result`) and `text`. `list_steps` returns the claim's steps oldest first.
-- [ ] `list_claims` returns `decision` and `payout` as `null` for an undecided claim, and the decision and payout once one is recorded.
-- [ ] `npm run check:python` passes with coverage at or above 80%.
+- [x] `uv run pytest backend` passes, with a test for each rule below.
+- [x] Approving CLM-1001 with a payout of 420.00 leaves it `in_progress`. `pay_claim` with 420.00 records the payment and moves it to `decided`.
+- [x] Approving CLM-1003 with a payout of 3,750.00 moves it to `awaiting_sign_off`. `pay_claim` with 3,750.00 then returns 409 with "A payout over $1,000.00 needs a handler's sign-off", and no payment is recorded.
+- [x] `sign_off` on CLM-1003 with `HND-01` records Dana Whitfield's sign-off and the payment, and moves it to `decided`. A second `pay_claim` returns 409.
+- [x] `pay_claim` returns 409 on a claim that is declined, referred or has no decision, and when the amount isn't the approved payout.
+- [x] `sign_off` returns 409 on a claim that isn't `awaiting_sign_off`, and 404 for an unknown handler.
+- [x] Declining or referring moves the claim to `decided` with a payout of 0. A second `record_decision` on a decided claim returns 409.
+- [x] `record_decision` returns 422 for a decision other than `approve`, `decline` or `refer`, or for a negative payout.
+- [x] `add_step` stores a step with its `thread_id`, `kind` (`message`, `tool_call` or `tool_result`) and `text`. `list_steps` returns the claim's steps oldest first.
+- [x] `list_claims` returns `decision` and `payout` as `null` for an undecided claim, and the decision and payout once one is recorded.
+- [x] `npm run check:python` passes with coverage at or above 80%.
 
 ## Phase 3: the UnderCover Agent
 

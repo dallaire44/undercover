@@ -2,10 +2,11 @@
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 State = Literal["waiting", "in_progress", "awaiting_sign_off", "decided"]
 Verdict = Literal["approve", "decline", "refer"]
+StepKind = Literal["message", "tool_call", "tool_result"]
 
 
 class Item(BaseModel):
@@ -39,7 +40,7 @@ class SignOff(BaseModel):
     signed_at: str
 
 
-class ClaimSummary(BaseModel):
+class ClaimCore(BaseModel):
     claim_id: str
     summary: str
     claim_type: str
@@ -49,7 +50,12 @@ class ClaimSummary(BaseModel):
     status: State
 
 
-class Claim(ClaimSummary):
+class ClaimSummary(ClaimCore):
+    decision: Verdict | None
+    payout: float | None
+
+
+class Claim(ClaimCore):
     policy_id: str
     customer_id: str
     incident_date: str
@@ -107,3 +113,29 @@ class Handler(BaseModel):
 
 class Text(BaseModel):
     text: str
+
+
+class DecisionIn(BaseModel):
+    decision: Verdict
+    payout: float = Field(ge=0)
+    reason: str
+    policy_section: str
+
+
+class PaymentIn(BaseModel):
+    amount: float
+
+
+class SignOffIn(BaseModel):
+    handler_id: str
+
+
+class StepIn(BaseModel):
+    thread_id: str
+    kind: StepKind
+    text: str
+
+
+class Step(StepIn):
+    id: int
+    created_at: str

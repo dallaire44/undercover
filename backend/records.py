@@ -38,12 +38,22 @@ def _customer_name(db: sqlite3.Connection, customer_id: str) -> str:
 
 def list_claims(db: sqlite3.Connection) -> list[ClaimSummary]:
     """Every claim in the queue, in claim id order."""
-    rows = db.execute("SELECT data, status FROM claims ORDER BY claim_id").fetchall()
+    rows = db.execute(
+        "SELECT c.data, c.status, d.decision, d.payout FROM claims c "
+        "LEFT JOIN decisions d ON d.claim_id = c.claim_id ORDER BY c.claim_id"
+    ).fetchall()
     claims = []
     for row in rows:
         data = {**json.loads(row["data"]), "status": row["status"]}
         name = _customer_name(db, data["customer_id"])
-        claims.append(ClaimSummary(**data, customer_name=name))
+        claims.append(
+            ClaimSummary(
+                **data,
+                customer_name=name,
+                decision=row["decision"],
+                payout=row["payout"],
+            )
+        )
     return claims
 
 

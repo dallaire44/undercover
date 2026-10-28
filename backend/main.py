@@ -6,14 +6,19 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
 
-from backend import records
+from backend import records, rules, steps
 from backend.db import DATA, get_db
 from backend.models import (
     Claim,
     ClaimHistory,
     ClaimSummary,
+    DecisionIn,
     Handler,
+    PaymentIn,
     Policy,
+    SignOffIn,
+    Step,
+    StepIn,
     Text,
 )
 
@@ -76,3 +81,36 @@ def get_instructions() -> Text:
 def list_handlers(db: Db) -> list[Handler]:
     """List the claims handlers."""
     return records.list_handlers(db)
+
+
+@app.post("/api/claims/{claim_id}/decision", operation_id="record_decision")
+def record_decision(claim_id: str, body: DecisionIn, db: Db) -> Claim:
+    """Record the agent's decision on a claim: approve, decline or refer."""
+    rules.record_decision(db, claim_id, body)
+    return found(records.get_claim(db, claim_id), "Claim")
+
+
+@app.post("/api/claims/{claim_id}/payment", operation_id="pay_claim")
+def pay_claim(claim_id: str, body: PaymentIn, db: Db) -> Claim:
+    """Pay an approved claim for exactly the approved payout."""
+    rules.pay_claim(db, claim_id, body.amount)
+    return found(records.get_claim(db, claim_id), "Claim")
+
+
+@app.post("/api/claims/{claim_id}/sign-off", operation_id="sign_off")
+def sign_off(claim_id: str, body: SignOffIn, db: Db) -> Claim:
+    """Sign off a payout over the limit as a handler, which releases the payment."""
+    rules.sign_off(db, claim_id, body.handler_id)
+    return found(records.get_claim(db, claim_id), "Claim")
+
+
+@app.get("/api/claims/{claim_id}/steps", operation_id="list_steps")
+def list_steps(claim_id: str, db: Db) -> list[Step]:
+    """List the agent's steps on a claim, oldest first."""
+    return steps.list_steps(db, claim_id)
+
+
+@app.post("/api/claims/{claim_id}/steps", operation_id="add_step")
+def add_step(claim_id: str, body: StepIn, db: Db) -> Step:
+    """Add one step the agent took on a claim."""
+    return steps.add_step(db, claim_id, body)
