@@ -171,12 +171,12 @@ Success criteria:
 
 Success criteria:
 
-- [ ] `vitest` tests cover the queue table, a decided row showing its decision chip and payout, an undecided row showing a dash in both columns, the state counts, the claim view with and without a decision, and money formatting.
-- [ ] Playwright e2e: the queue shows 25 claims, and each state's count matches the chips in the table (the e2e tests share one database and run in parallel, so a fixed "Waiting 25" would depend on test order). Clicking CLM-1001 shows Maya Patel's story, its 3 items with amounts such as $245.00, and the Premium plan.
-- [ ] Playwright e2e: after the test approves CLM-1014 for $650.00 through the API, its queue row shows "Approved" and "$650.00".
-- [ ] Playwright e2e: after the test records a decision on a claim through the API, that claim's page shows the decision, payout, reason and policy section.
-- [ ] Checked in the browser, in light and dark mode (with a Playwright script: the Playwright MCP server was added mid-session, so its tools were not loaded): the queue and claim pages use the brand's fonts and colors, panels are rounded with no outline, there are no one-edge borders and no thin line across the top of the page, and screenshots are reviewed. The queue is also checked at 1280 px and 1541 px wide: all eight columns fit, and only Customer wraps.
-- [ ] `npm run check:ts` passes with coverage at or above 80%. `npm run e2e` passes.
+- [x] `vitest` tests cover the queue table, a decided row showing its decision chip and payout, an undecided row showing a dash in both columns, the state counts, the claim view with and without a decision, and money formatting.
+- [x] Playwright e2e: the queue shows 25 claims, and each state's count matches the chips in the table (the e2e tests share one database and run in parallel, so a fixed "Waiting 25" would depend on test order). Clicking CLM-1001 shows Maya Patel's story, its 3 items with amounts such as $245.00, and the Premium plan.
+- [x] Playwright e2e: after the test approves CLM-1014 for $650.00 through the API, its queue row shows "Approved" and "$650.00".
+- [x] Playwright e2e: after the test records a decision on a claim through the API, that claim's page shows the decision, payout, reason and policy section.
+- [x] Checked in the browser, in light and dark mode (with a Playwright script: the Playwright MCP server was added mid-session, so its tools were not loaded): the queue and claim pages use the brand's fonts and colors, panels are rounded with no outline, there are no one-edge borders and no thin line across the top of the page, and screenshots are reviewed. The queue is also checked at 1280 px and 1541 px wide: all eight columns fit, and only Customer wraps.
+- [x] `npm run check:ts` passes with coverage at or above 80%. `npm run e2e` passes.
 
 ## Phase 5: the dashboard, the agent at work
 

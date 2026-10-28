@@ -1,19 +1,26 @@
-import { useEffect, useState } from "react";
+import { ClaimPage } from "./ClaimPage";
+import { Queue } from "./Queue";
+import { useRoute } from "./route";
 
 export function App() {
-  const [status, setStatus] = useState("checking");
-
-  useEffect(() => {
-    void fetch("/api/health")
-      .then((response) => (response.ok ? "up" : "down"))
-      .catch(() => "down")
-      .then(setStatus);
-  }, []);
-
+  const route = useRoute();
   return (
-    <main>
-      <h1>UnderCover</h1>
-      <p>Backend: {status}</p>
-    </main>
+    <>
+      <header className="top">
+        <a href="#/" className="brand">
+          <h1>UnderCover</h1>
+        </a>
+        <p className="tagline">
+          Every claim decided, and every decision explained.
+        </p>
+      </header>
+      <main>
+        {route.page === "claim" ? (
+          <ClaimPage key={route.id} id={route.id} />
+        ) : (
+          <Queue />
+        )}
+      </main>
+    </>
   );
 }
