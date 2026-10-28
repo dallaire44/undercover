@@ -77,10 +77,10 @@ Tests never call a model. Six success criteria run the real agent on the enginee
 
 Success criteria:
 
-- [x] Both files exist and match `docs/CLAUDE_PRE_TOOL_USE_HOOK.md`.
-- [x] `.claude/settings.json` is valid JSON with a `PreToolUse` entry that matches `Bash`.
-- [x] With sample input piped to the script and a temporary `HOME`: `git commit -m "x" --no-verify`, `git commit -n`, `LEFTHOOK=0 git commit` and `git -c core.hooksPath=x commit` each exit 2 and write one log line with `time`, `session`, `cwd`, `transcript` and `command`. `git commit -m "x"`, `git log -n 5` and `npm run check` exit 0 and add nothing to `blocked-commits.log`. Every command that contains `git`, and no other, adds a line to `guard-calls.log` with `blocked` true or false.
-- [x] `git status` shows the two files as the only changes, and the commit goes through the pre-commit hook with its jobs skipped.
+- [ ] Both files exist and match `docs/CLAUDE_PRE_TOOL_USE_HOOK.md`.
+- [ ] `.claude/settings.json` is valid JSON with a `PreToolUse` entry that matches `Bash`.
+- [ ] With sample input piped to the script and a temporary `HOME`: `git commit -m "x" --no-verify`, `git commit -n`, `LEFTHOOK=0 git commit` and `git -c core.hooksPath=x commit` each exit 2 and write one log line with `time`, `session`, `cwd`, `transcript` and `command`. `git commit -m "x"`, `git log -n 5` and `npm run check` exit 0 and add nothing to `blocked-commits.log`. Every command that contains `git`, and no other, adds a line to `guard-calls.log` with `blocked` true or false.
+- [ ] `git status` shows the two files as the only changes, and the commit goes through the pre-commit hook with its jobs skipped.
 - [ ] If Claude Code has loaded the hook in this session, a real `git commit --no-verify` is blocked with its message. Otherwise this is checked in the next session. The blocked command changes nothing.
 
 ## Phase 1: the records and the queue (backend)
@@ -95,19 +95,19 @@ Success criteria:
 
 Success criteria:
 
-- [x] `uv run pytest backend` passes. Each test runs against its own temporary database.
-- [x] A test walks `app.openapi()` and asserts that every operation has an `operationId`, a one-line summary and no optional parameters or body fields.
-- [x] `GET /api/claims` returns 25 claims, all `waiting`, with `claim_id`, `summary`, `claim_type`, `amount_claimed`, `submitted_on`, `customer_name` and `status`.
-- [x] `GET /api/claims/CLM-1001` returns the story, the 3 items, the 4 documents and `"status": "waiting"`, with `decision`, `payment` and `sign_off` all `null`.
-- [x] `GET /api/claims/CLM-9999` returns 404.
-- [x] `GET /api/policies/POL-2001` returns the Premium plan, the trip to Rome and the traveler Maya Patel.
-- [x] `GET /api/customers/CUS-3001/history` returns Maya Patel's one earlier claim, CLM-0412, and no email, phone, address or date of birth.
-- [x] `GET /api/policy-wording` returns `data/policy_wording.md`, starting "# UnderCover Travel Insurance: Policy Wording".
-- [x] `GET /api/instructions` returns the text of `backend/instructions.md`.
-- [x] `GET /api/handlers` returns the 3 handlers.
-- [x] `uv run -m backend.seed` rebuilds the database. A test runs it twice and finds 25 waiting claims.
-- [x] `grep -rn "evals\|security" backend agent` finds no reference to `data/evals/` or `data/security/`.
-- [x] `npm run check:python` passes with coverage at or above 80%.
+- [ ] `uv run pytest backend` passes. Each test runs against its own temporary database.
+- [ ] A test walks `app.openapi()` and asserts that every operation has an `operationId`, a one-line summary and no optional parameters or body fields.
+- [ ] `GET /api/claims` returns 25 claims, all `waiting`, with `claim_id`, `summary`, `claim_type`, `amount_claimed`, `submitted_on`, `customer_name` and `status`.
+- [ ] `GET /api/claims/CLM-1001` returns the story, the 3 items, the 4 documents and `"status": "waiting"`, with `decision`, `payment` and `sign_off` all `null`.
+- [ ] `GET /api/claims/CLM-9999` returns 404.
+- [ ] `GET /api/policies/POL-2001` returns the Premium plan, the trip to Rome and the traveler Maya Patel.
+- [ ] `GET /api/customers/CUS-3001/history` returns Maya Patel's one earlier claim, CLM-0412, and no email, phone, address or date of birth.
+- [ ] `GET /api/policy-wording` returns `data/policy_wording.md`, starting "# UnderCover Travel Insurance: Policy Wording".
+- [ ] `GET /api/instructions` returns the text of `backend/instructions.md`.
+- [ ] `GET /api/handlers` returns the 3 handlers.
+- [ ] `uv run -m backend.seed` rebuilds the database. A test runs it twice and finds 25 waiting claims.
+- [ ] `grep -rn "evals\|security" backend agent` finds no reference to `data/evals/` or `data/security/`.
+- [ ] `npm run check:python` passes with coverage at or above 80%.
 
 ## Phase 2: decisions, payments, sign-off and steps (backend)
 
@@ -117,17 +117,17 @@ Success criteria:
 
 Success criteria:
 
-- [x] `uv run pytest backend` passes, with a test for each rule below.
-- [x] Approving CLM-1001 with a payout of 420.00 leaves it `in_progress`. `pay_claim` with 420.00 records the payment and moves it to `decided`.
-- [x] Approving CLM-1003 with a payout of 3,750.00 moves it to `awaiting_sign_off`. `pay_claim` with 3,750.00 then returns 409 with "A payout over $1,000.00 needs a handler's sign-off", and no payment is recorded.
-- [x] `sign_off` on CLM-1003 with `HND-01` records Dana Whitfield's sign-off and the payment, and moves it to `decided`. A second `pay_claim` returns 409.
-- [x] `pay_claim` returns 409 on a claim that is declined, referred or has no decision, and when the amount isn't the approved payout.
-- [x] `sign_off` returns 409 on a claim that isn't `awaiting_sign_off`, and 404 for an unknown handler.
-- [x] Declining or referring moves the claim to `decided` with a payout of 0. A second `record_decision` on a decided claim returns 409.
-- [x] `record_decision` returns 422 for a decision other than `approve`, `decline` or `refer`, or for a negative payout.
-- [x] `add_step` stores a step with its `thread_id`, `kind` (`message`, `tool_call` or `tool_result`) and `text`. `list_steps` returns the claim's steps oldest first.
-- [x] `list_claims` returns `decision` and `payout` as `null` for an undecided claim, and the decision and payout once one is recorded.
-- [x] `npm run check:python` passes with coverage at or above 80%.
+- [ ] `uv run pytest backend` passes, with a test for each rule below.
+- [ ] Approving CLM-1001 with a payout of 420.00 leaves it `in_progress`. `pay_claim` with 420.00 records the payment and moves it to `decided`.
+- [ ] Approving CLM-1003 with a payout of 3,750.00 moves it to `awaiting_sign_off`. `pay_claim` with 3,750.00 then returns 409 with "A payout over $1,000.00 needs a handler's sign-off", and no payment is recorded.
+- [ ] `sign_off` on CLM-1003 with `HND-01` records Dana Whitfield's sign-off and the payment, and moves it to `decided`. A second `pay_claim` returns 409.
+- [ ] `pay_claim` returns 409 on a claim that is declined, referred or has no decision, and when the amount isn't the approved payout.
+- [ ] `sign_off` returns 409 on a claim that isn't `awaiting_sign_off`, and 404 for an unknown handler.
+- [ ] Declining or referring moves the claim to `decided` with a payout of 0. A second `record_decision` on a decided claim returns 409.
+- [ ] `record_decision` returns 422 for a decision other than `approve`, `decline` or `refer`, or for a negative payout.
+- [ ] `add_step` stores a step with its `thread_id`, `kind` (`message`, `tool_call` or `tool_result`) and `text`. `list_steps` returns the claim's steps oldest first.
+- [ ] `list_claims` returns `decision` and `payout` as `null` for an undecided claim, and the decision and payout once one is recorded.
+- [ ] `npm run check:python` passes with coverage at or above 80%.
 
 ## Phase 3: the UnderCover Agent
 
@@ -144,16 +144,16 @@ Success criteria:
 
 Success criteria:
 
-- [x] `uv run pytest agent` passes with a stub model (`GenericFakeChatModel`) and the backend through `TestClient`. No test calls a real model.
-- [x] A stub run on CLM-1001 that reads the claim, policy, history and wording, approves 420.00 and pays leaves the claim `decided`, with a step for every message, tool call and tool result.
-- [x] A stub run on CLM-1003 that approves 3,750.00 and then calls `pay_claim` leaves it `awaiting_sign_off` with no payment. The step trail shows the 409 message returned to the model.
-- [x] A stub run that ends without a decision puts the claim back to `waiting`, with a step that says so.
-- [x] `POST /api/claims/CLM-1001/agent` returns 202 and the claim moves to `in_progress` (agent stubbed in the backend test). It returns 409 if the claim isn't `waiting`.
-- [x] `POST /api/queue/agent` runs the stubbed agent on every waiting claim in turn (backend test).
-- [x] The agent's system prompt is the text from `GET /api/instructions` (test).
-- [x] **Real model.** With `npm run dev:backend` running, `uv run -m agent CLM-1001` ends with CLM-1001 `decided`. `GET /api/claims/CLM-1001` shows a decision, a payout, a reason of two or three sentences and a policy section, and `GET /api/claims/CLM-1001/steps` lists the agent's steps.
-- [x] **Real model.** `uv run -m agent CLM-1003` ends with a decision. If the agent approves over $1,000, the claim is `awaiting_sign_off` and has no payment.
-- [x] `npm run check:python` passes with coverage at or above 80%.
+- [ ] `uv run pytest agent` passes with a stub model (`GenericFakeChatModel`) and the backend through `TestClient`. No test calls a real model.
+- [ ] A stub run on CLM-1001 that reads the claim, policy, history and wording, approves 420.00 and pays leaves the claim `decided`, with a step for every message, tool call and tool result.
+- [ ] A stub run on CLM-1003 that approves 3,750.00 and then calls `pay_claim` leaves it `awaiting_sign_off` with no payment. The step trail shows the 409 message returned to the model.
+- [ ] A stub run that ends without a decision puts the claim back to `waiting`, with a step that says so.
+- [ ] `POST /api/claims/CLM-1001/agent` returns 202 and the claim moves to `in_progress` (agent stubbed in the backend test). It returns 409 if the claim isn't `waiting`.
+- [ ] `POST /api/queue/agent` runs the stubbed agent on every waiting claim in turn (backend test).
+- [ ] The agent's system prompt is the text from `GET /api/instructions` (test).
+- [ ] **Real model.** With `npm run dev:backend` running, `uv run -m agent CLM-1001` ends with CLM-1001 `decided`. `GET /api/claims/CLM-1001` shows a decision, a payout, a reason of two or three sentences and a policy section, and `GET /api/claims/CLM-1001/steps` lists the agent's steps.
+- [ ] **Real model.** `uv run -m agent CLM-1003` ends with a decision. If the agent approves over $1,000, the claim is `awaiting_sign_off` and has no payment.
+- [ ] `npm run check:python` passes with coverage at or above 80%.
 
 ## Phase 4: the dashboard, the queue and the claim
 
@@ -171,12 +171,12 @@ Success criteria:
 
 Success criteria:
 
-- [x] `vitest` tests cover the queue table, a decided row showing its decision chip and payout, an undecided row showing a dash in both columns, the state counts, the claim view with and without a decision, and money formatting.
-- [x] Playwright e2e: the queue shows 25 claims, and each state's count matches the chips in the table (the e2e tests share one database and run in parallel, so a fixed "Waiting 25" would depend on test order). Clicking CLM-1001 shows Maya Patel's story, its 3 items with amounts such as $245.00, and the Premium plan.
-- [x] Playwright e2e: after the test approves CLM-1014 for $650.00 through the API, its queue row shows "Approved" and "$650.00".
-- [x] Playwright e2e: after the test records a decision on a claim through the API, that claim's page shows the decision, payout, reason and policy section.
-- [x] Checked in the browser, in light and dark mode (with a Playwright script: the Playwright MCP server was added mid-session, so its tools were not loaded): the queue and claim pages use the brand's fonts and colors, panels are rounded with no outline, there are no one-edge borders and no thin line across the top of the page, and screenshots are reviewed. The queue is also checked at 1280 px and 1541 px wide: all eight columns fit, and only Customer wraps.
-- [x] `npm run check:ts` passes with coverage at or above 80%. `npm run e2e` passes.
+- [ ] `vitest` tests cover the queue table, a decided row showing its decision chip and payout, an undecided row showing a dash in both columns, the state counts, the claim view with and without a decision, and money formatting.
+- [ ] Playwright e2e: the queue shows 25 claims, and each state's count matches the chips in the table (the e2e tests share one database and run in parallel, so a fixed "Waiting 25" would depend on test order). Clicking CLM-1001 shows Maya Patel's story, its 3 items with amounts such as $245.00, and the Premium plan.
+- [ ] Playwright e2e: after the test approves CLM-1014 for $650.00 through the API, its queue row shows "Approved" and "$650.00".
+- [ ] Playwright e2e: after the test records a decision on a claim through the API, that claim's page shows the decision, payout, reason and policy section.
+- [ ] Checked in the browser, in light and dark mode (with a Playwright script: the Playwright MCP server was added mid-session, so its tools were not loaded): the queue and claim pages use the brand's fonts and colors, panels are rounded with no outline, there are no one-edge borders and no thin line across the top of the page, and screenshots are reviewed. The queue is also checked at 1280 px and 1541 px wide: all eight columns fit, and only Customer wraps.
+- [ ] `npm run check:ts` passes with coverage at or above 80%. `npm run e2e` passes.
 
 ## Phase 5: the dashboard, the agent at work
 
@@ -191,12 +191,12 @@ Success criteria:
 
 Success criteria:
 
-- [x] `vitest` tests cover the steps timeline, the polling while in progress, the sign-off panel and the instructions page.
-- [x] Playwright e2e: the test approves CLM-1012 over $1,000 through the API and tries to pay it, which returns 409. The claim page shows "Waiting for sign-off" and the payment on hold. Signing off as Priya Raman shows "Decided" and the payment, and the queue counts update.
-- [x] Playwright e2e: steps posted through the API show up on the claim page in order.
-- [x] Playwright e2e: the instructions page shows the text from `backend/instructions.md` and has no way to edit it.
-- [x] Checked in the browser (with a Playwright script, as in Phase 4): the steps timeline, the sign-off panel and the instructions page in light and dark mode, with screenshots reviewed.
-- [x] `npm run check:ts` and `npm run e2e` pass.
+- [ ] `vitest` tests cover the steps timeline, the polling while in progress, the sign-off panel and the instructions page.
+- [ ] Playwright e2e: the test approves CLM-1012 over $1,000 through the API and tries to pay it, which returns 409. The claim page shows "Waiting for sign-off" and the payment on hold. Signing off as Priya Raman shows "Decided" and the payment, and the queue counts update.
+- [ ] Playwright e2e: steps posted through the API show up on the claim page in order.
+- [ ] Playwright e2e: the instructions page shows the text from `backend/instructions.md` and has no way to edit it.
+- [ ] Checked in the browser (with a Playwright script, as in Phase 4): the steps timeline, the sign-off panel and the instructions page in light and dark mode, with screenshots reviewed.
+- [ ] `npm run check:ts` and `npm run e2e` pass.
 
 ## Phase 6: end to end, and handover
 
@@ -207,12 +207,12 @@ Success criteria:
 
 Success criteria:
 
-- [x] `npm run reset` gives 25 waiting claims.
-- [x] **Real model, in the browser (with a Playwright script, as in Phase 4).** With `npm run dev` running, "Run the agent" on CLM-1001 shows the claim in progress, the steps appearing as the agent works, and then the decision with its reason and policy section.
-- [x] **Real model, in the browser.** "Run the agent" on CLM-1013 and CLM-1004 ends with each claim decided or waiting for sign-off, and the queue counts match.
-- [x] Any claim the real agent approved over $1,000 shows the payment on hold until a handler signs off in the dashboard. (CLM-1003 was also run from the dashboard for this, since the other three claims are under $1,000.)
-- [x] `docs/STATUS.md` and `README.md` are updated.
-- [x] `npm run check` passes: ruff, pyright, pytest at 80% or more, ESLint, Prettier, tsc, vitest at 80% or more, and Playwright.
+- [ ] `npm run reset` gives 25 waiting claims.
+- [ ] **Real model, in the browser (with a Playwright script, as in Phase 4).** With `npm run dev` running, "Run the agent" on CLM-1001 shows the claim in progress, the steps appearing as the agent works, and then the decision with its reason and policy section.
+- [ ] **Real model, in the browser.** "Run the agent" on CLM-1013 and CLM-1004 ends with each claim decided or waiting for sign-off, and the queue counts match.
+- [ ] Any claim the real agent approved over $1,000 shows the payment on hold until a handler signs off in the dashboard. (CLM-1003 was also run from the dashboard for this, since the other three claims are under $1,000.)
+- [ ] `docs/STATUS.md` and `README.md` are updated.
+- [ ] `npm run check` passes: ruff, pyright, pytest at 80% or more, ESLint, Prettier, tsc, vitest at 80% or more, and Playwright.
 
 ## Phase 7: a light and dark switch
 
@@ -227,12 +227,12 @@ Success criteria:
 
 Success criteria:
 
-- [x] `vitest`: the switch shows "Dark mode" with `aria-pressed` matching the current mode. Clicking it sets `data-theme` on `<html>` and saves the choice, and clicking again switches back.
-- [x] Playwright e2e: with the browser set to light and nothing saved, the queue starts light, with the page background `#F0F4F5`. Clicking "Dark mode" turns it dark, with the background `#04232E` and `aria-pressed="true"`. After a reload, and on the instructions page, it is still dark.
-- [x] Playwright e2e: with the browser set to dark and nothing saved, the page starts dark. Choosing light is remembered after a reload.
-- [x] Checked in the browser (with a Playwright script: the Playwright MCP server's tools were still not loaded in this session): the switch in the header on the queue, a claim and the instructions page, in both modes, with no flash of the other mode on reload. Screenshots are reviewed. The no-flash check records the mode when the HTML finishes parsing, before the app runs, for each mix of computer setting and saved choice.
-- [x] `docs/STATUS.md` says how to switch modes.
-- [x] `npm run check` passes.
+- [ ] `vitest`: the switch shows "Dark mode" with `aria-pressed` matching the current mode. Clicking it sets `data-theme` on `<html>` and saves the choice, and clicking again switches back.
+- [ ] Playwright e2e: with the browser set to light and nothing saved, the queue starts light, with the page background `#F0F4F5`. Clicking "Dark mode" turns it dark, with the background `#04232E` and `aria-pressed="true"`. After a reload, and on the instructions page, it is still dark.
+- [ ] Playwright e2e: with the browser set to dark and nothing saved, the page starts dark. Choosing light is remembered after a reload.
+- [ ] Checked in the browser (with a Playwright script: the Playwright MCP server's tools were still not loaded in this session): the switch in the header on the queue, a claim and the instructions page, in both modes, with no flash of the other mode on reload. Screenshots are reviewed. The no-flash check records the mode when the HTML finishes parsing, before the app runs, for each mix of computer setting and saved choice.
+- [ ] `docs/STATUS.md` says how to switch modes.
+- [ ] `npm run check` passes.
 
 ## Phase 8: a color-blind mode
 
@@ -247,15 +247,15 @@ Success criteria:
 
 Success criteria:
 
-- [x] `vitest`: `ModeSwitch` works for both modes. It shows its label, `aria-pressed` matches the attribute on `<html>`, and clicking it flips the attribute and saves the choice under its own key, without touching the other mode.
-- [x] `vitest`: each decision chip renders its symbol (check, cross or arrow) with `aria-hidden="true"`, and the chip's accessible name is still just its word, such as "Approved".
-- [x] Playwright e2e: with nothing saved, the mode is off and the brand is unchanged. A Waiting chip is Cerulean `rgb(17, 138, 178)` with white text, a Decided chip is Sea Green, and no symbol is visible.
-- [x] Playwright e2e: turning on "Color-blind mode" changes the chips to the colors in `docs/ACCESSIBILITY.md`. Waiting becomes `rgb(0, 114, 178)` with white text, and Decided becomes `rgb(0, 158, 115)` with black text. A decision chip shows its symbol, on the claim page and in the queue's Decision column, and the payment-on-hold box becomes `rgb(204, 121, 167)` with black text, on a claim the test approves over $1,000 through the API. The mode stays on after a reload, and turning it off restores the brand colors.
-- [x] Playwright e2e: the two switches are independent. With both on, the page is dark and the chips use the color-blind colors. Turning either off leaves the other as it was.
-- [x] No flash on load, checked as in Phase 7: when the HTML finishes parsing, before the app runs, `data-colors` already holds the saved choice, or `brand` with nothing saved.
-- [x] Checked in the browser with the Playwright MCP server if its tools are loaded, otherwise with a Playwright script: the queue, a decided claim and a claim waiting for sign-off, with the mode on, in light and in dark. The header's two switches line up with the page links. Screenshots are reviewed.
-- [x] `docs/STATUS.md` describes the color-blind mode and points to `docs/ACCESSIBILITY.md`.
-- [x] `npm run check` passes.
+- [ ] `vitest`: `ModeSwitch` works for both modes. It shows its label, `aria-pressed` matches the attribute on `<html>`, and clicking it flips the attribute and saves the choice under its own key, without touching the other mode.
+- [ ] `vitest`: each decision chip renders its symbol (check, cross or arrow) with `aria-hidden="true"`, and the chip's accessible name is still just its word, such as "Approved".
+- [ ] Playwright e2e: with nothing saved, the mode is off and the brand is unchanged. A Waiting chip is Cerulean `rgb(17, 138, 178)` with white text, a Decided chip is Sea Green, and no symbol is visible.
+- [ ] Playwright e2e: turning on "Color-blind mode" changes the chips to the colors in `docs/ACCESSIBILITY.md`. Waiting becomes `rgb(0, 114, 178)` with white text, and Decided becomes `rgb(0, 158, 115)` with black text. A decision chip shows its symbol, on the claim page and in the queue's Decision column, and the payment-on-hold box becomes `rgb(204, 121, 167)` with black text, on a claim the test approves over $1,000 through the API. The mode stays on after a reload, and turning it off restores the brand colors.
+- [ ] Playwright e2e: the two switches are independent. With both on, the page is dark and the chips use the color-blind colors. Turning either off leaves the other as it was.
+- [ ] No flash on load, checked as in Phase 7: when the HTML finishes parsing, before the app runs, `data-colors` already holds the saved choice, or `brand` with nothing saved.
+- [ ] Checked in the browser with the Playwright MCP server if its tools are loaded, otherwise with a Playwright script: the queue, a decided claim and a claim waiting for sign-off, with the mode on, in light and in dark. The header's two switches line up with the page links. Screenshots are reviewed.
+- [ ] `docs/STATUS.md` describes the color-blind mode and points to `docs/ACCESSIBILITY.md`.
+- [ ] `npm run check` passes.
 
 ## Phase 9: sliders for the two modes
 
@@ -273,11 +273,11 @@ Success criteria:
 
 Success criteria:
 
-- [x] `vitest`: `ModeSwitch` renders a switch with its label as its name. `aria-checked` is `false` while the mode is off and `true` while it is on, and matches the attribute on `<html>`. Clicking flips both, saves the choice under its own key and leaves the other mode alone. The dot is `aria-hidden`. Pressing Space is checked in Playwright, since jsdom does not turn a key press into a click.
-- [x] Playwright e2e: for each slider, off puts the dot at the left of the track and on puts it at the right (the dot's center is left of the track's center when off, and right of it when on). This holds in light and dark, and with color-blind mode on and off.
-- [x] Playwright e2e: the existing mode tests still pass with the new locators: the starting mode, the saved choice after a reload, the independence of the two sliders and the colors in `docs/ACCESSIBILITY.md`.
-- [x] Playwright e2e: with the keyboard, Tab reaches each slider, Space flips it, and the slider shows a focus ring. With `prefers-reduced-motion: reduce`, the dot's transition duration is `0s`.
-- [x] No flash on load: unchanged from Phases 7 and 8, so those e2e tests pass as they are.
-- [x] Checked in the browser (with a Playwright script, as in Phase 4): the header with both sliders off and on, in light and in dark, and with color-blind mode on. The dot is at the left when off and at the right when on. The links and sliders line up, and nothing in the header moves. Screenshots are reviewed.
-- [x] `docs/STATUS.md` describes the sliders.
-- [x] `npm run check` passes.
+- [ ] `vitest`: `ModeSwitch` renders a switch with its label as its name. `aria-checked` is `false` while the mode is off and `true` while it is on, and matches the attribute on `<html>`. Clicking flips both, saves the choice under its own key and leaves the other mode alone. The dot is `aria-hidden`. Pressing Space is checked in Playwright, since jsdom does not turn a key press into a click.
+- [ ] Playwright e2e: for each slider, off puts the dot at the left of the track and on puts it at the right (the dot's center is left of the track's center when off, and right of it when on). This holds in light and dark, and with color-blind mode on and off.
+- [ ] Playwright e2e: the existing mode tests still pass with the new locators: the starting mode, the saved choice after a reload, the independence of the two sliders and the colors in `docs/ACCESSIBILITY.md`.
+- [ ] Playwright e2e: with the keyboard, Tab reaches each slider, Space flips it, and the slider shows a focus ring. With `prefers-reduced-motion: reduce`, the dot's transition duration is `0s`.
+- [ ] No flash on load: unchanged from Phases 7 and 8, so those e2e tests pass as they are.
+- [ ] Checked in the browser (with a Playwright script, as in Phase 4): the header with both sliders off and on, in light and in dark, and with color-blind mode on. The dot is at the left when off and at the right when on. The links and sliders line up, and nothing in the header moves. Screenshots are reviewed.
+- [ ] `docs/STATUS.md` describes the sliders.
+- [ ] `npm run check` passes.
