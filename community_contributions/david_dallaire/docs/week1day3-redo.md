@@ -20,7 +20,7 @@ The plan and the code were committed together, phase by phase, so no commit hold
 - `docs/PLAN.md`, then unticked
 - `docs/SPEC.md`, with the additions behind phases 7 and 9
 - `docs/ACCESSIBILITY.md`, the requirement behind phase 8
-- `docs/MIGRATE.md` and `AGENTS.md`, from separate requests
+- `AGENTS.md`, from a separate request
 - `community_contributions/david_dallaire/`, `skeleton_linkedin.md`, `skeleton_linkedin_ex1.md` and `labs/week1day2.ipynb`
 
 **Left as `main` has them:** the plan's output.
@@ -40,7 +40,7 @@ The plan and the code were committed together, phase by phase, so no commit hold
 3. **Bring the plan, the requirements and the other work across:**
 
    ```bash
-   git checkout week1day3-ed -- docs/PLAN.md docs/SPEC.md docs/ACCESSIBILITY.md docs/MIGRATE.md AGENTS.md labs/week1day2.ipynb skeleton_linkedin.md skeleton_linkedin_ex1.md community_contributions/david_dallaire
+   git checkout week1day3-ed -- docs/PLAN.md docs/SPEC.md docs/ACCESSIBILITY.md AGENTS.md labs/week1day2.ipynb skeleton_linkedin.md skeleton_linkedin_ex1.md community_contributions/david_dallaire
    ```
 
 4. **Untick the criteria.** All 71 `[x]` in `PLAN.md` are checkbox lines, which was checked with grep first, so this changes nothing else:
@@ -66,7 +66,7 @@ The plan and the code were committed together, phase by phase, so no commit hold
 | Check | Result |
 |---|---|
 | `backend`, `agent`, `dashboard`, `e2e`, `package.json`, `playwright.config.ts`, `README.md` and `docs/STATUS.md` match `main` | Identical |
-| Files that differ from `main` | Only the 11 docs and notes files brought across |
+| Files that differ from `main` | Only the 10 docs and notes files brought across |
 | `PLAN.md` compared with `week1day3-ed` | 71 lines changed, each only from `[x]` to `[ ]`, and no `[x]` left |
 | `week1day3-ed` | Unchanged apart from the commit in step 1 |
 | `npm run check:python` on the skeleton | Passed: 4 tests, 97% coverage |
