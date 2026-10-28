@@ -15,6 +15,21 @@
   --on-decided: #073b4c;
   --alert: #ef476f;
   --on-alert: #ffffff;
+  --action: #118ab2;
+  --on-action: #ffffff;
+}
+
+:root[data-colors="color-blind"] {
+  --waiting: #0072b2;
+  --on-waiting: #ffffff;
+  --in-progress: #d55e00;
+  --on-in-progress: #000000;
+  --sign-off: #f0e442;
+  --on-sign-off: #000000;
+  --decided: #009e73;
+  --on-decided: #000000;
+  --alert: #cc79a7;
+  --on-alert: #000000;
 }
 
 :root[data-theme="dark"] {
@@ -258,8 +273,8 @@ button {
   padding: 8px 16px;
   border: 0;
   border-radius: 10px;
-  background: var(--waiting);
-  color: var(--on-waiting);
+  background: var(--action);
+  color: var(--on-action);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -316,4 +331,16 @@ pre.instructions {
   white-space: pre-wrap;
   font-family: "JetBrains Mono", ui-monospace, monospace;
   font-size: 0.9rem;
+}
+
+.symbol {
+  display: none;
+  width: 12px;
+  height: 12px;
+  margin-right: 4px;
+  vertical-align: -1px;
+}
+
+:root[data-colors="color-blind"] .symbol {
+  display: inline-block;
 }

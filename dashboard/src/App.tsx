@@ -1,9 +1,9 @@
 import { ClaimPage } from "./ClaimPage";
 import { Instructions } from "./Instructions";
+import { ModeSwitch } from "./ModeSwitch";
 import { Queue } from "./Queue";
 import { useRoute } from "./route";
 import type { Route } from "./route";
-import { ThemeSwitch } from "./ThemeSwitch";
 
 function Page({ route }: Readonly<{ route: Route }>) {
   switch (route.page) {
@@ -29,7 +29,20 @@ export function App() {
         </p>
         <nav>
           <a href="#/instructions">Agent instructions</a>
-          <ThemeSwitch />
+          <ModeSwitch
+            label="Dark mode"
+            attribute="theme"
+            on="dark"
+            off="light"
+            storageKey="undercover-theme"
+          />
+          <ModeSwitch
+            label="Color-blind mode"
+            attribute="colors"
+            on="color-blind"
+            off="brand"
+            storageKey="undercover-colors"
+          />
         </nav>
       </header>
       <main>

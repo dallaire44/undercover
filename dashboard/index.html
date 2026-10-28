@@ -12,6 +12,8 @@
           ? saved === "dark"
           : matchMedia("(prefers-color-scheme: dark)").matches;
         document.documentElement.dataset.theme = dark ? "dark" : "light";
+        document.documentElement.dataset.colors =
+          localStorage.getItem("undercover-colors") ?? "brand";
       }
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
