@@ -22,6 +22,10 @@ And in case you haven't heard it from me enough, I'd be delighted if you'd consi
 
 While about $10 of API spend would be typical for this course, there are free alternatives for everything. Most labs have a free version whose name ends in `free`, the installation steps include a free coding agent, and in Week 3 the free route uses Render in place of AWS.
 
+## Running the pilot
+
+Run `uv sync` and `npm install`, put your `OPENROUTER_API_KEY` in `.env`, then `npm run dev` and open http://localhost:5173. `npm run reset` returns all 25 claims to waiting, `uv run -m agent CLM-1001` runs the agent on one claim, and `npm run check` runs every check. [docs/STATUS.md](docs/STATUS.md) has the detail.
+
 ## For immediate help
 
 Just ask your coding agent (Cursor, Claude Code, etc.). I've equipped it with full knowledge of the course, the labs and this project, and it can help!
