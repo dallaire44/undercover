@@ -502,7 +502,7 @@ This also searches the session you're in, so any commands in it that contain the
 
 ### Instrumentation you can add
 
-**A log line in the guard hook.** This is the simplest option. Claude Code passes the hook the session ID, so each block can write one line. Here is `.claude/hooks/guard-commit.mjs` from [What it looks like](#what-it-looks-like), with the log added:
+**A log line in the guard hook.** This is the simplest option. Claude Code passes the hook the session ID, the working directory and the path to the session's transcript, so each block can write one line that says which project it came from and where to read the whole session. Here is `.claude/hooks/guard-commit.mjs` from [What it looks like](#what-it-looks-like), with the log added:
 
 ```js
 import { appendFileSync, readFileSync } from "node:fs";
@@ -514,18 +514,31 @@ const command = input.tool_input.command;
 const bypasses = [/--no-verify/, /\bgit\b.*\bcommit\b.*\s-n\b/, /LEFTHOOK=0/, /core\.hooksPath/];
 
 if (bypasses.some((pattern) => pattern.test(command))) {
-  const entry = { time: new Date().toISOString(), session: input.session_id, command };
+  const entry = {
+    time: new Date().toISOString(),
+    session: input.session_id,
+    cwd: input.cwd,
+    transcript: input.transcript_path,
+    command,
+  };
   appendFileSync(join(homedir(), ".claude", "blocked-commits.log"), JSON.stringify(entry) + "\n");
   console.error("Blocked: the pre-commit checks must run. Fix the failure and commit again.");
   process.exit(2);
 }
 ```
 
-The log goes in your home folder, outside the repo, so it never gets committed. Tested with sample input: `git commit -m "Phase 3" --no-verify` exits 2 and writes this line, and `git commit -m "Phase 3"` exits 0 and writes nothing.
+Tested with sample input: `git commit -m "Phase 3" --no-verify` exits 2 and writes this line, and `git commit -m "Phase 3"` exits 0 and writes nothing.
 
 ```json
-{"time":"2026-10-28T11:35:47.748Z","session":"abc123","command":"git commit -m \"Phase 3\" --no-verify"}
+{"time":"2026-10-28T20:04:50.246Z","session":"abc123","cwd":"/home/you/undercover","transcript":"/home/you/.claude/projects/-home-you-undercover/abc123.jsonl","command":"git commit -m \"Phase 3\" --no-verify"}
 ```
+
+**Where the log goes.** The example writes to your home folder, `~/.claude/blocked-commits.log`. That's a sound choice for one person on one machine, but not best practice beyond that:
+
+- **It follows Claude Code's own docs.** The hooks guide's examples log to `~/.claude/bash.log`, `~/.claude/command-log.txt` and `~/claude-config-audit.log`. The log also sits next to Claude Code's session transcripts in `~/.claude/projects/`, and it survives branch switches and fresh clones.
+- **Never put it in the repo.** It could be committed by accident. It would also sit inside Claude's working directory, where Claude's file tools could edit the evidence. A log in your home folder is outside it.
+- **The operating systems have their own conventions.** On Linux, the XDG base directory spec puts logs in `$XDG_STATE_HOME`, which defaults to `~/.local/state`. macOS and Windows use other folders. `~/.claude/` is simpler, and it works on all three, which matters because `PROCESS.md` requires everything to work on Windows.
+- **A local file is weak evidence.** Anything running as you can edit or delete it, including Claude through Bash. For a team or an audit, send the events off the machine to a central collector, which is what Claude Code's OpenTelemetry support below does.
 
 **Claude Code's built-in OpenTelemetry.** This suits a team running many agents. You turn it on with environment variables:
 
