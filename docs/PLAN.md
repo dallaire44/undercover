@@ -1,8 +1,8 @@
 # Plan: the claims pilot
 
-This plan builds the pilot in `docs/SPEC.md` on the skeleton described in `docs/STATUS.md`. It follows `docs/TECH_STACK.md`, `docs/CODE_STANDARDS.md`, `docs/PROCESS.md` and `docs/BRAND.md`.
+This plan builds the pilot in `docs/SPEC.md` on the skeleton described in `docs/STATUS.md`. It follows `docs/TECH_STACK.md`, `docs/CODE_STANDARDS.md`, `docs/PROCESS.md` and `docs/BRAND.md`, and installs the commit guard in `docs/CLAUDE_PRE_TOOL_USE_HOOK.md`.
 
-Phases 1 to 6 built the pilot. Phase 7 was added afterwards, when `docs/SPEC.md` gained a switch between light and dark screens. Phase 8 adds the color-blind mode that `docs/ACCESSIBILITY.md` describes.
+Phase 0 installs the Claude Code hook that stops a commit from skipping the pre-commit checks. Phases 1 to 6 built the pilot. Phase 7 was added afterwards, when `docs/SPEC.md` gained a switch between light and dark screens. Phase 8 adds the color-blind mode that `docs/ACCESSIBILITY.md` describes.
 
 ## The approach
 
@@ -68,6 +68,20 @@ As `docs/SPEC.md` says: no claims manual (the agent works from the policy wordin
 Tests never call a model. Six success criteria run the real agent on the engineer's OpenRouter key: two in Phase 3 and three in Phase 6, on claims CLM-1001, CLM-1003, CLM-1013 and CLM-1004 (CLM-1001 runs twice). Each run is one claim on `openai/gpt-6-luna` with low reasoning effort, or on `MODEL_NAME` if it's set, and costs a few cents at most.
 
 ---
+
+## Phase 0: the commit guard
+
+**Builds:** the Claude Code hook in `docs/CLAUDE_PRE_TOOL_USE_HOOK.md`: `.claude/settings.json` and `.claude/hooks/guard-commit.mjs`, copied exactly from that document and checked in. `.gitignore` ignores only `.claude/settings.local.json`. Claude Code may ask for approval to write under `.claude/`.
+
+**Why first:** every later phase ends with a commit through the pre-commit hook, so the guard must be in place before the first one. It backs the rule in `docs/PROCESS.md`: never use `git commit --no-verify`. It blocks `--no-verify`, `git commit -n`, `LEFTHOOK=0` and `core.hooksPath`, and logs each block to `~/.claude/blocked-commits.log`.
+
+Success criteria:
+
+- [ ] Both files exist and match `docs/CLAUDE_PRE_TOOL_USE_HOOK.md`.
+- [ ] `.claude/settings.json` is valid JSON with a `PreToolUse` entry that matches `Bash`.
+- [ ] With sample input piped to the script and a temporary `HOME`: `git commit -m "x" --no-verify`, `git commit -n`, `LEFTHOOK=0 git commit` and `git -c core.hooksPath=x commit` each exit 2 and write one log line with `time`, `session`, `cwd`, `transcript` and `command`. `git commit -m "x"`, `git log -n 5` and `npm run check` exit 0 and write nothing.
+- [ ] `git status` shows the two files as the only changes, and the commit goes through the pre-commit hook with its jobs skipped.
+- [ ] If Claude Code has loaded the hook in this session, a real `git commit --no-verify` is blocked with its message. Otherwise this is checked in the next session. The blocked command changes nothing.
 
 ## Phase 1: the records and the queue (backend)
 

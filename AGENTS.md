@@ -21,6 +21,7 @@ IMPORTANT: before you plan, build or change anything in the product, or answer q
 5. `docs/BRAND.md`: the look
 6. `docs/STATUS.md`: what's built so far and how to run it
 7. `docs/PLAN.md`: the plan for the pilot. Future plans go in their own documents, such as `docs/PLAN_HARNESS.md`, as we get there
+8. `docs/CLAUDE_PRE_TOOL_USE_HOOK.md`: the Claude Code hook to install, which stops a commit from skipping the pre-commit checks
 
 ### Your role in the build
 
