@@ -2,7 +2,7 @@
 
 This plan builds the pilot in `docs/SPEC.md` on the skeleton described in `docs/STATUS.md`. It follows `docs/TECH_STACK.md`, `docs/CODE_STANDARDS.md`, `docs/PROCESS.md` and `docs/BRAND.md`, and installs the commit guard in `docs/CLAUDE_PRE_TOOL_USE_HOOK.md`.
 
-Phase 0 installs the Claude Code hook that stops a commit from skipping the pre-commit checks. Phases 1 to 6 built the pilot. Phase 7 was added afterwards, when `docs/SPEC.md` gained a switch between light and dark screens. Phase 8 adds the color-blind mode that `docs/ACCESSIBILITY.md` describes. Phase 9 turns the two header switches into sliders.
+Phase 0 installs the Claude Code hook that stops a commit from skipping the pre-commit checks. Phases 1 to 6 built the pilot. Phase 7 was added afterwards, when `docs/SPEC.md` gained a slider between light and dark screens. Phase 8 adds the color-blind mode that `docs/ACCESSIBILITY.md` describes, with a second slider.
 
 ## The approach
 
@@ -214,70 +214,52 @@ Success criteria:
 - [ ] `docs/STATUS.md` and `README.md` are updated.
 - [ ] `npm run check` passes: ruff, pyright, pytest at 80% or more, ESLint, Prettier, tsc, vitest at 80% or more, and Playwright.
 
-## Phase 7: a light and dark switch
+## Phase 7: a light and dark slider
 
-**Builds:** a switch in the dashboard's header, on every page, between light and dark. This is a dashboard-only change; the backend and the agent are not touched.
+**Builds:** a slider in the dashboard's header, on every page, between light and dark. This is a dashboard-only change; the backend and the agent are not touched.
 
 - **One attribute decides the look.** The `<html>` element carries `data-theme="light"` or `data-theme="dark"`. The dark colors in `dashboard/src/styles.css` move from the `prefers-color-scheme` media query to `:root[data-theme="dark"]`, so the stylesheet answers to one thing only.
 - **The right mode from the first frame.** A few lines of script in `dashboard/index.html` set the attribute before the page draws: the saved choice if there is one, otherwise the computer's setting. Setting it from React instead would flash the wrong mode on every load.
-- **The switch.** A "Dark mode" button in the header, after "Agent instructions", with `aria-pressed` so screen readers announce whether it is on. It looks like the other header links. Clicking it flips the attribute and saves the choice in the browser's `localStorage`.
+- **The slider.** A "Dark mode" slider in the header, after "Agent instructions": a small track with a round dot, with the label beside it. The dot at the left means off and at the right means on. Clicking it flips the attribute and saves the choice in the browser's `localStorage`.
+- **A real switch for screen readers.** `ThemeSwitch` in `dashboard/src/ThemeSwitch.tsx` is a `<button>`, so Space and Enter work, with `role="switch"` and `aria-checked`. A screen reader says "Dark mode, switch, off" or "on". The dot is `aria-hidden`, since the role already says the state.
+- **The position carries the state, not the color.** The track is the muted text color when off and the fixed action color (`--action`) when on, so the color-blind palette in Phase 8 does not recolor it. Both keep at least 3:1 contrast against the page in light and dark. The dot is white.
+- **Easy to hit and to see.** The track is about 44 by 24 pixels, and the slider has a visible focus ring. The dot moves with a short transition, which `prefers-reduced-motion: reduce` turns off.
+- **Layout.** The header links, label and slider stay on one baseline. Nothing else in the header moves.
 - **Starts in the computer's setting, as the spec says.** Until someone uses the switch, each load follows the computer's setting. After that, their saved choice wins. The choice is kept per browser, since the pilot has no sign-in.
 
-**Why this approach:** keeping the mode in one attribute on `<html>` means the CSS, the start-up script and the switch never disagree, and the start-up script avoids a flash of the wrong mode. It needs no new libraries.
+**Why this approach:** keeping the mode in one attribute on `<html>` means the CSS, the start-up script and the slider never disagree, and the start-up script avoids a flash of the wrong mode. A slider matches what the control is, something that is on or off and not an action, and a `<button>` with `role="switch"` gives it that meaning for screen readers and the keyboard. It needs no new libraries.
 
 Success criteria:
 
-- [ ] `vitest`: the switch shows "Dark mode" with `aria-pressed` matching the current mode. Clicking it sets `data-theme` on `<html>` and saves the choice, and clicking again switches back.
-- [ ] Playwright e2e: with the browser set to light and nothing saved, the queue starts light, with the page background `#F0F4F5`. Clicking "Dark mode" turns it dark, with the background `#04232E` and `aria-pressed="true"`. After a reload, and on the instructions page, it is still dark.
+- [ ] `vitest`: the slider is a switch named "Dark mode". `aria-checked` is `false` while the mode is off and `true` while it is on, and matches `data-theme` on `<html>`. Clicking flips both and saves the choice, and clicking again switches back. The dot is `aria-hidden`.
+- [ ] Playwright e2e: with the browser set to light and nothing saved, the queue starts light, with the page background `#F0F4F5`. Clicking the "Dark mode" switch turns it dark, with the background `#04232E` and `aria-checked="true"`. After a reload, and on the instructions page, it is still dark.
 - [ ] Playwright e2e: with the browser set to dark and nothing saved, the page starts dark. Choosing light is remembered after a reload.
-- [ ] Checked in the browser (with a Playwright script: the Playwright MCP server's tools were still not loaded in this session): the switch in the header on the queue, a claim and the instructions page, in both modes, with no flash of the other mode on reload. Screenshots are reviewed. The no-flash check records the mode when the HTML finishes parsing, before the app runs, for each mix of computer setting and saved choice.
+- [ ] Playwright e2e: off puts the dot at the left of the track and on puts it at the right (the dot's center is left of the track's center when off, and right of it when on), in light and in dark.
+- [ ] Playwright e2e: with the keyboard, Tab reaches the slider, Space flips it, and it shows a focus ring. With `prefers-reduced-motion: reduce`, the dot's transition duration is `0s`.
+- [ ] Checked in the browser (with a Playwright script: the Playwright MCP server's tools were still not loaded in this session): the slider in the header on the queue, a claim and the instructions page, off and on, in both modes, with no flash of the other mode on reload. The dot is at the left when off and at the right when on, and the links and slider line up. Screenshots are reviewed. The no-flash check records the mode when the HTML finishes parsing, before the app runs, for each mix of computer setting and saved choice.
 - [ ] `docs/STATUS.md` says how to switch modes.
 - [ ] `npm run check` passes.
 
 ## Phase 8: a color-blind mode
 
-**Builds:** the color-blind mode in `docs/ACCESSIBILITY.md`: a "Color-blind mode" switch in the header, next to "Dark mode". When it is on, the claim-state, decision and payment-on-hold colors change to the Okabe-Ito colors in that document, and each decision chip gains a symbol: a check, a cross or an arrow. When it is off, which is the default, the dashboard is exactly as `docs/BRAND.md` describes. This is a dashboard-only change.
+**Builds:** the color-blind mode in `docs/ACCESSIBILITY.md`: a "Color-blind mode" slider in the header, next to "Dark mode". When it is on, the claim-state, decision and payment-on-hold colors change to the Okabe-Ito colors in that document, and each decision chip gains a symbol: a check, a cross or an arrow. When it is off, which is the default, the dashboard is exactly as `docs/BRAND.md` describes. This is a dashboard-only change.
 
 - **Four state colors and one alert color carry everything.** The stylesheet already gives each decision the color of a claim state: Approved matches Decided, Declined matches In progress and Referred matches Waiting for sign-off. The color-blind mapping keeps those pairs. So `dashboard/src/styles.css` gets five variables (`--waiting`, `--in-progress`, `--sign-off`, `--decided` and `--alert`) plus the text color on each. The chips, the count-tile dots and the payment-on-hold box use them, and `:root[data-colors="color-blind"]` overrides them with the values and text colors in `docs/ACCESSIBILITY.md`.
 - **Set before the page draws, like dark mode.** The start-up lines in `dashboard/index.html` also set `data-colors` on `<html>`, from the saved choice or else `brand`. There is no computer setting to start from, so the mode starts off.
-- **One switch component for both modes.** `ThemeSwitch` becomes `ModeSwitch` in `dashboard/src/ModeSwitch.tsx`, which takes the label, the `<html>` attribute, its on and off values, and the storage key. The header uses it twice: "Dark mode" (`data-theme`, `undercover-theme`) and "Color-blind mode" (`data-colors`, `undercover-colors`). Both look and behave the same.
+- **One switch component for both modes.** `ThemeSwitch` becomes `ModeSwitch` in `dashboard/src/ModeSwitch.tsx`, which takes the label, the `<html>` attribute, its on and off values, and the storage key. It keeps Phase 7's slider, `role="switch"` and `aria-checked`. The header uses it twice: "Dark mode" (`data-theme`, `undercover-theme`) and "Color-blind mode" (`data-colors`, `undercover-colors`). Both look and behave the same. The slider's colors don't depend on the mode, so the color-blind palette leaves them alone.
 - **Symbols on the decision chips.** `VerdictChip` in `dashboard/src/Chips.tsx` renders a small inline SVG before the word: a check for Approved, a cross for Declined and an arrow for Referred. Each has `aria-hidden="true"`, since the word already says it. CSS hides the symbols unless the mode is on, so React does not need to know the mode.
 
 **Why this approach:** it reuses Phase 7's pattern of one attribute on `<html>`, set before the page draws. The mode is pure CSS, and the default brand look cannot change by accident, because the brand values stay where they are and the mode only overrides them.
 
 Success criteria:
 
-- [ ] `vitest`: `ModeSwitch` works for both modes. It shows its label, `aria-pressed` matches the attribute on `<html>`, and clicking it flips the attribute and saves the choice under its own key, without touching the other mode.
+- [ ] `vitest`: `ModeSwitch` works for both modes. It is a switch with its label as its name, `aria-checked` matches the attribute on `<html>`, and clicking it flips both and saves the choice under its own key, without touching the other mode.
 - [ ] `vitest`: each decision chip renders its symbol (check, cross or arrow) with `aria-hidden="true"`, and the chip's accessible name is still just its word, such as "Approved".
 - [ ] Playwright e2e: with nothing saved, the mode is off and the brand is unchanged. A Waiting chip is Cerulean `rgb(17, 138, 178)` with white text, a Decided chip is Sea Green, and no symbol is visible.
 - [ ] Playwright e2e: turning on "Color-blind mode" changes the chips to the colors in `docs/ACCESSIBILITY.md`. Waiting becomes `rgb(0, 114, 178)` with white text, and Decided becomes `rgb(0, 158, 115)` with black text. A decision chip shows its symbol, on the claim page and in the queue's Decision column, and the payment-on-hold box becomes `rgb(204, 121, 167)` with black text, on a claim the test approves over $1,000 through the API. The mode stays on after a reload, and turning it off restores the brand colors.
-- [ ] Playwright e2e: the two switches are independent. With both on, the page is dark and the chips use the color-blind colors. Turning either off leaves the other as it was.
+- [ ] Playwright e2e: the two sliders are independent. With both on, the page is dark and the chips use the color-blind colors. Turning either off leaves the other as it was.
+- [ ] Playwright e2e: each slider puts its dot at the left when off and at the right when on, with color-blind mode on and off, and Space flips each from the keyboard.
 - [ ] No flash on load, checked as in Phase 7: when the HTML finishes parsing, before the app runs, `data-colors` already holds the saved choice, or `brand` with nothing saved.
-- [ ] Checked in the browser with the Playwright MCP server if its tools are loaded, otherwise with a Playwright script: the queue, a decided claim and a claim waiting for sign-off, with the mode on, in light and in dark. The header's two switches line up with the page links. Screenshots are reviewed.
+- [ ] Checked in the browser with the Playwright MCP server if its tools are loaded, otherwise with a Playwright script: the queue, a decided claim and a claim waiting for sign-off, with the mode on, in light and in dark. The header's two sliders line up with the page links, and the dot is at the left when off and at the right when on. Screenshots are reviewed.
 - [ ] `docs/STATUS.md` describes the color-blind mode and points to `docs/ACCESSIBILITY.md`.
-- [ ] `npm run check` passes.
-
-## Phase 9: sliders for the two modes
-
-**Builds:** "Dark mode" and "Color-blind mode" in the header become sliders. Each is a small track with a round dot. When the dot is at the left, the mode is off. When it is at the right, the mode is on. The label stays beside the slider. This is a dashboard-only change: the modes, the saved choices and the start-up lines in `dashboard/index.html` do not change.
-
-- **One component.** `ModeSwitch` in `dashboard/src/ModeSwitch.tsx` keeps its props and its behavior. It only draws a slider in place of the text button.
-- **A real switch for screen readers.** The element stays a `<button>`, so Space and Enter work as they do now, but its role is `switch` and `aria-checked` replaces `aria-pressed`. A screen reader then says "Dark mode, switch, off" or "on", which is what a slider means. The dot is `aria-hidden`, since the state is already in the role.
-- **The position carries the state, not the color.** Off and on differ by where the dot is, so the slider works in color-blind mode too. The track is the muted text color when off and the fixed action color (`--action`) when on, so the color-blind palette does not recolor it. Both track colors keep at least 3:1 contrast against the page in light and dark. The dot is white.
-- **Easy to hit and to see.** The track is about 44 by 24 pixels, and the slider has a visible focus ring. The dot moves with a short transition, which `prefers-reduced-motion: reduce` turns off.
-- **Layout.** The header links, labels and sliders stay on one baseline, as in Phase 8. Nothing else in the header moves.
-
-**Why this approach:** the sliders match what the two controls are: switches that are on or off, not actions. The spec and `docs/ACCESSIBILITY.md` already call them switches, so no document needs to change. Keeping one component, one `<button>` and the same attributes on `<html>` means only the drawing and the way tests find the switch change.
-
-**Tests that change:** the switches are found with `getByRole("switch", { name })` in place of `getByRole("button", { name })`, and `aria-pressed` becomes `aria-checked`. That touches `dashboard/src/ModeSwitch.test.tsx`, `e2e/theme.spec.ts` and `e2e/colors.spec.ts`. The instructions-page test, which checks that `<main>` has no buttons, is unaffected, because the sliders are in the header.
-
-Success criteria:
-
-- [ ] `vitest`: `ModeSwitch` renders a switch with its label as its name. `aria-checked` is `false` while the mode is off and `true` while it is on, and matches the attribute on `<html>`. Clicking flips both, saves the choice under its own key and leaves the other mode alone. The dot is `aria-hidden`. Pressing Space is checked in Playwright, since jsdom does not turn a key press into a click.
-- [ ] Playwright e2e: for each slider, off puts the dot at the left of the track and on puts it at the right (the dot's center is left of the track's center when off, and right of it when on). This holds in light and dark, and with color-blind mode on and off.
-- [ ] Playwright e2e: the existing mode tests still pass with the new locators: the starting mode, the saved choice after a reload, the independence of the two sliders and the colors in `docs/ACCESSIBILITY.md`.
-- [ ] Playwright e2e: with the keyboard, Tab reaches each slider, Space flips it, and the slider shows a focus ring. With `prefers-reduced-motion: reduce`, the dot's transition duration is `0s`.
-- [ ] No flash on load: unchanged from Phases 7 and 8, so those e2e tests pass as they are.
-- [ ] Checked in the browser (with a Playwright script, as in Phase 4): the header with both sliders off and on, in light and in dark, and with color-blind mode on. The dot is at the left when off and at the right when on. The links and sliders line up, and nothing in the header moves. Screenshots are reviewed.
-- [ ] `docs/STATUS.md` describes the sliders.
 - [ ] `npm run check` passes.

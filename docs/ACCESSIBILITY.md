@@ -42,7 +42,7 @@ Sources: Okabe and Ito at https://jfly.uni-koeln.de/color/, Paul Tol's notes at 
 
 ## The color-blind mode
 
-A "Color-blind mode" switch in the header. It is off by default, so the dashboard looks as `docs/BRAND.md` describes. When a handler turns it on:
+A "Color-blind mode" slider in the header, drawn like the "Dark mode" one (see `docs/SPEC.md`): the dot at the left is off and at the right is on. It is off by default, so the dashboard looks as `docs/BRAND.md` describes. When a handler turns it on:
 
 | What | Brand | Color-blind mode | Text on it |
 |---|---|---|---|

@@ -31,7 +31,7 @@ Our goal is to handle claims straight through, as accurately as our handlers do.
 - Each claim in full, with the agent's decision and its reasons.
 - What the agent is doing on a claim while it works, step by step.
 - The agent's instructions, read only.
-- Light or dark screens, as each person prefers. The screens start in the computer's own setting, and a switch on every screen changes it and remembers the choice.
+- Light or dark screens, as each person prefers. The screens start in the computer's own setting, and a slider on every screen changes it and remembers the choice. The slider is a small track with a round dot: the dot at the left means the dark screens are off, and at the right means they are on. A screen reader announces it as a switch that is on or off, and it works from the keyboard.
 
 ## Rules
 
