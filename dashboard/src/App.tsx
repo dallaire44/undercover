@@ -3,6 +3,7 @@ import { Instructions } from "./Instructions";
 import { Queue } from "./Queue";
 import { useRoute } from "./route";
 import type { Route } from "./route";
+import { ThemeSwitch } from "./ThemeSwitch";
 
 function Page({ route }: Readonly<{ route: Route }>) {
   switch (route.page) {
@@ -28,6 +29,7 @@ export function App() {
         </p>
         <nav>
           <a href="#/instructions">Agent instructions</a>
+          <ThemeSwitch />
         </nav>
       </header>
       <main>

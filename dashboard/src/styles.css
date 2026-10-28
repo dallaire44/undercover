@@ -17,15 +17,13 @@
   --on-alert: #ffffff;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --page: #04232e;
-    --panel: #000000;
-    --band: #0b1114;
-    --ink: #cdd8db;
-    --muted: #93a9b0;
-    --link: #5cc8e8;
-  }
+:root[data-theme="dark"] {
+  --page: #04232e;
+  --panel: #000000;
+  --band: #0b1114;
+  --ink: #cdd8db;
+  --muted: #93a9b0;
+  --link: #5cc8e8;
 }
 
 * {
@@ -243,7 +241,17 @@ ul.plain {
 }
 
 nav {
+  display: flex;
+  gap: 20px;
   margin-left: auto;
+}
+
+nav button {
+  padding: 0;
+  background: none;
+  color: var(--link);
+  font-weight: 400;
+  text-decoration: underline;
 }
 
 button {

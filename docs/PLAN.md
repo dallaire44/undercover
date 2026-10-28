@@ -227,12 +227,12 @@ Success criteria:
 
 Success criteria:
 
-- [ ] `vitest`: the switch shows "Dark mode" with `aria-pressed` matching the current mode. Clicking it sets `data-theme` on `<html>` and saves the choice, and clicking again switches back.
-- [ ] Playwright e2e: with the browser set to light and nothing saved, the queue starts light, with the page background `#F0F4F5`. Clicking "Dark mode" turns it dark, with the background `#04232E` and `aria-pressed="true"`. After a reload, and on the instructions page, it is still dark.
-- [ ] Playwright e2e: with the browser set to dark and nothing saved, the page starts dark. Choosing light is remembered after a reload.
-- [ ] Checked in the browser (with a Playwright script: the Playwright MCP server's tools were still not loaded in this session): the switch in the header on the queue, a claim and the instructions page, in both modes, with no flash of the other mode on reload. Screenshots are reviewed. The no-flash check records the mode when the HTML finishes parsing, before the app runs, for each mix of computer setting and saved choice.
-- [ ] `docs/STATUS.md` says how to switch modes.
-- [ ] `npm run check` passes.
+- [x] `vitest`: the switch shows "Dark mode" with `aria-pressed` matching the current mode. Clicking it sets `data-theme` on `<html>` and saves the choice, and clicking again switches back.
+- [x] Playwright e2e: with the browser set to light and nothing saved, the queue starts light, with the page background `#F0F4F5`. Clicking "Dark mode" turns it dark, with the background `#04232E` and `aria-pressed="true"`. After a reload, and on the instructions page, it is still dark.
+- [x] Playwright e2e: with the browser set to dark and nothing saved, the page starts dark. Choosing light is remembered after a reload.
+- [x] Checked in the browser (with a Playwright script: the Playwright MCP server's tools were still not loaded in this session): the switch in the header on the queue, a claim and the instructions page, in both modes, with no flash of the other mode on reload. Screenshots are reviewed. The no-flash check records the mode when the HTML finishes parsing, before the app runs, for each mix of computer setting and saved choice.
+- [x] `docs/STATUS.md` says how to switch modes.
+- [x] `npm run check` passes.
 
 ## Phase 8: a color-blind mode
 

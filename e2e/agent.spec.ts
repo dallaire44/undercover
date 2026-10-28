@@ -74,7 +74,7 @@ test("the instructions page shows the agent's instructions and cannot edit them"
   await expect(page).toHaveURL(/#\/instructions$/);
   await expect(page.locator("pre.instructions")).toHaveText(file);
   await expect(page.getByRole("textbox")).toHaveCount(0);
-  await expect(page.getByRole("button")).toHaveCount(0);
+  await expect(page.getByRole("main").getByRole("button")).toHaveCount(0);
 });
 
 test("the agent buttons are there for a waiting claim and the queue", async ({
