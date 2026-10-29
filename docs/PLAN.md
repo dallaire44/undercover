@@ -77,11 +77,11 @@ Tests never call a model. Six success criteria run the real agent on the enginee
 
 Success criteria:
 
-- [ ] Both files exist and match `docs/CLAUDE_PRE_TOOL_USE_HOOK.md`.
-- [ ] `.claude/settings.json` is valid JSON with a `PreToolUse` entry that matches `Bash`.
-- [ ] With sample input piped to the script and a temporary `HOME`: `git commit -m "x" --no-verify`, `git commit -n`, `LEFTHOOK=0 git commit` and `git -c core.hooksPath=x commit` each exit 2 and write one log line with `time`, `session`, `cwd`, `transcript` and `command`. `git commit -m "x"`, `git log -n 5` and `npm run check` exit 0 and add nothing to `blocked-commits.log`. Every command that contains `git`, and no other, adds a line to `guard-calls.log` with `blocked` true or false.
-- [ ] `git status` shows the two files as the only changes, and the commit goes through the pre-commit hook with its jobs skipped.
-- [ ] If Claude Code has loaded the hook in this session, a real `git commit --no-verify` is blocked with its message. Otherwise this is checked in the next session. The blocked command changes nothing.
+- [x] Both files exist and match `docs/CLAUDE_PRE_TOOL_USE_HOOK.md`.
+- [x] `.claude/settings.json` is valid JSON with a `PreToolUse` entry that matches `Bash`.
+- [x] With sample input piped to the script and a temporary `HOME`: `git commit -m "x" --no-verify`, `git commit -n`, `LEFTHOOK=0 git commit` and `git -c core.hooksPath=x commit` each exit 2 and write one log line with `time`, `session`, `cwd`, `transcript` and `command`. `git commit -m "x"`, `git log -n 5` and `npm run check` exit 0 and add nothing to `blocked-commits.log`. Every command that contains `git`, and no other, adds a line to `guard-calls.log` with `blocked` true or false.
+- [x] `git status` shows the two files as the only changes, and the commit goes through the pre-commit hook with its jobs skipped.
+- [ ] If Claude Code has loaded the hook in this session, a real `git commit --no-verify` is blocked with its message. Otherwise this is checked in the next session. The blocked command changes nothing. Not loaded in this session: `git commit --no-verify` was not blocked and changed nothing (no staged changes). To check next session.
 
 ## Phase 1: the records and the queue (backend)
 
