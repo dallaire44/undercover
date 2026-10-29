@@ -3,6 +3,7 @@ import { listClaims } from "./api";
 import { Claim } from "./Claim";
 import { Instructions } from "./Instructions";
 import { Queue } from "./Queue";
+import { ThemeSwitch } from "./ThemeSwitch";
 import { useLoad } from "./useLoad";
 
 function useHash() {
@@ -44,6 +45,7 @@ export function App() {
         <nav>
           <a href="#/">Queue</a>
           <a href="#/instructions">Agent instructions</a>
+          <ThemeSwitch />
         </nav>
       </header>
       <main>

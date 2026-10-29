@@ -231,14 +231,14 @@ Success criteria:
 
 Success criteria:
 
-- [ ] `vitest`: the slider is a switch named "Dark mode". `aria-checked` is `false` while the mode is off and `true` while it is on, and matches `data-theme` on `<html>`. Clicking flips both and saves the choice, and clicking again switches back. The dot is `aria-hidden`.
-- [ ] Playwright e2e: with the browser set to light and nothing saved, the queue starts light, with the page background `#F0F4F5`. Clicking the "Dark mode" switch turns it dark, with the background `#04232E` and `aria-checked="true"`. After a reload, and on the instructions page, it is still dark.
-- [ ] Playwright e2e: with the browser set to dark and nothing saved, the page starts dark. Choosing light is remembered after a reload.
-- [ ] Playwright e2e: off puts the dot at the left of the track and on puts it at the right (the dot's center is left of the track's center when off, and right of it when on), in light and in dark.
-- [ ] Playwright e2e: with the keyboard, Tab reaches the slider, Space flips it, and it shows a focus ring. With `prefers-reduced-motion: reduce`, the dot's transition duration is `0s`.
-- [ ] Checked in the browser (with a Playwright script: the Playwright MCP server's tools were still not loaded in this session): the slider in the header on the queue, a claim and the instructions page, off and on, in both modes, with no flash of the other mode on reload. The dot is at the left when off and at the right when on, and the links and slider line up. Screenshots are reviewed. The no-flash check records the mode when the HTML finishes parsing, before the app runs, for each mix of computer setting and saved choice.
-- [ ] `docs/STATUS.md` says how to switch modes.
-- [ ] `npm run check` passes.
+- [x] `vitest`: the slider is a switch named "Dark mode". `aria-checked` is `false` while the mode is off and `true` while it is on, and matches `data-theme` on `<html>`. Clicking flips both and saves the choice, and clicking again switches back. The dot is `aria-hidden`.
+- [x] Playwright e2e: with the browser set to light and nothing saved, the queue starts light, with the page background `#F0F4F5`. Clicking the "Dark mode" switch turns it dark, with the background `#04232E` and `aria-checked="true"`. After a reload, and on the instructions page, it is still dark.
+- [x] Playwright e2e: with the browser set to dark and nothing saved, the page starts dark. Choosing light is remembered after a reload.
+- [x] Playwright e2e: off puts the dot at the left of the track and on puts it at the right (the dot's center is left of the track's center when off, and right of it when on), in light and in dark.
+- [x] Playwright e2e: with the keyboard, Tab reaches the slider, Space flips it, and it shows a focus ring. With `prefers-reduced-motion: reduce`, the dot's transition duration is `0s`.
+- [x] Checked in the browser (with the Playwright MCP server): the slider in the header on the queue, a claim and the instructions page, off and on, in both modes, with no flash of the other mode on reload. The dot is at the left when off and at the right when on, and the links and slider line up. Screenshots are reviewed. The no-flash check records the mode when the HTML finishes parsing, before the app runs, for each mix of computer setting and saved choice.
+- [x] `docs/STATUS.md` says how to switch modes.
+- [x] `npm run check` passes.
 
 ## Phase 8: a color-blind mode
 

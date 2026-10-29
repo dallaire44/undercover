@@ -5,19 +5,18 @@
   --muted: #4d6b76;
   --link: #0b6c8a;
   --row: #f0f4f5;
+  --action: #118ab2;
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #04232e;
-    --panel: #000000;
-    --ink: #cdd8db;
-    --muted: #9ab0b7;
-    --link: #5fd4f2;
-    --row: #04232e;
-    color-scheme: dark;
-  }
+:root[data-theme="dark"] {
+  --bg: #04232e;
+  --panel: #000000;
+  --ink: #cdd8db;
+  --muted: #9ab0b7;
+  --link: #5fd4f2;
+  --row: #04232e;
+  color-scheme: dark;
 }
 
 * {
@@ -295,4 +294,58 @@ pre {
 
 .on-hold button {
   background: #ffffff;
+}
+
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  color: inherit;
+  font-weight: 400;
+}
+
+.switch:hover {
+  filter: none;
+}
+
+.switch:focus-visible {
+  outline: 3px solid var(--link);
+  outline-offset: 4px;
+  border-radius: 999px;
+}
+
+.switch-track {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: 999px;
+  background: var(--muted);
+}
+
+.switch[aria-checked="true"] .switch-track {
+  background: var(--action);
+}
+
+.switch-dot {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #ffffff;
+  transition: transform 0.15s;
+}
+
+.switch[aria-checked="true"] .switch-dot {
+  transform: translateX(20px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .switch-dot {
+    transition: none;
+  }
 }
