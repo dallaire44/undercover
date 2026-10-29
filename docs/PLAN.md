@@ -95,19 +95,19 @@ Success criteria:
 
 Success criteria:
 
-- [ ] `uv run pytest backend` passes. Each test runs against its own temporary database.
-- [ ] A test walks `app.openapi()` and asserts that every operation has an `operationId`, a one-line summary and no optional parameters or body fields.
-- [ ] `GET /api/claims` returns 25 claims, all `waiting`, with `claim_id`, `summary`, `claim_type`, `amount_claimed`, `submitted_on`, `customer_name` and `status`.
-- [ ] `GET /api/claims/CLM-1001` returns the story, the 3 items, the 4 documents and `"status": "waiting"`, with `decision`, `payment` and `sign_off` all `null`.
-- [ ] `GET /api/claims/CLM-9999` returns 404.
-- [ ] `GET /api/policies/POL-2001` returns the Premium plan, the trip to Rome and the traveler Maya Patel.
-- [ ] `GET /api/customers/CUS-3001/history` returns Maya Patel's one earlier claim, CLM-0412, and no email, phone, address or date of birth.
-- [ ] `GET /api/policy-wording` returns `data/policy_wording.md`, starting "# UnderCover Travel Insurance: Policy Wording".
-- [ ] `GET /api/instructions` returns the text of `backend/instructions.md`.
-- [ ] `GET /api/handlers` returns the 3 handlers.
-- [ ] `uv run -m backend.seed` rebuilds the database. A test runs it twice and finds 25 waiting claims.
-- [ ] `grep -rn "evals\|security" backend agent` finds no reference to `data/evals/` or `data/security/`.
-- [ ] `npm run check:python` passes with coverage at or above 80%.
+- [x] `uv run pytest backend` passes. Each test runs against its own temporary database.
+- [x] A test walks `app.openapi()` and asserts that every operation has an `operationId`, a one-line summary and no optional parameters or body fields.
+- [x] `GET /api/claims` returns 25 claims, all `waiting`, with `claim_id`, `summary`, `claim_type`, `amount_claimed`, `submitted_on`, `customer_name` and `status`.
+- [x] `GET /api/claims/CLM-1001` returns the story, the 3 items, the 4 documents and `"status": "waiting"`, with `decision`, `payment` and `sign_off` all `null`.
+- [x] `GET /api/claims/CLM-9999` returns 404.
+- [x] `GET /api/policies/POL-2001` returns the Premium plan, the trip to Rome and the traveler Maya Patel.
+- [x] `GET /api/customers/CUS-3001/history` returns Maya Patel's one earlier claim, CLM-0412, and no email, phone, address or date of birth.
+- [x] `GET /api/policy-wording` returns `data/policy_wording.md`, starting "# UnderCover Travel Insurance: Policy Wording".
+- [x] `GET /api/instructions` returns the text of `backend/instructions.md`.
+- [x] `GET /api/handlers` returns the 3 handlers.
+- [x] `uv run -m backend.seed` rebuilds the database. A test runs it twice and finds 25 waiting claims.
+- [x] `grep -rn "evals\|security" backend agent` finds no reference to `data/evals/` or `data/security/`.
+- [x] `npm run check:python` passes with coverage at or above 80%.
 
 ## Phase 2: decisions, payments, sign-off and steps (backend)
 
