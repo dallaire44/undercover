@@ -23,6 +23,17 @@ CREATE TABLE IF NOT EXISTS claims (
 CREATE TABLE IF NOT EXISTS policies (policy_id TEXT PRIMARY KEY, doc TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS customers (customer_id TEXT PRIMARY KEY, doc TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS handlers (handler_id TEXT PRIMARY KEY, doc TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS decisions (
+    claim_id TEXT PRIMARY KEY, decision TEXT NOT NULL, payout REAL NOT NULL,
+    reason TEXT NOT NULL, policy_section TEXT NOT NULL, decided_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS payments (
+    claim_id TEXT PRIMARY KEY, amount REAL NOT NULL, paid_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS sign_offs (
+    claim_id TEXT PRIMARY KEY, handler_id TEXT NOT NULL, signed_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS steps (
+    id INTEGER PRIMARY KEY AUTOINCREMENT, claim_id TEXT NOT NULL,
+    thread_id TEXT NOT NULL, kind TEXT NOT NULL, text TEXT NOT NULL,
+    created_at TEXT NOT NULL);
 """
 
 
@@ -71,7 +82,10 @@ def init() -> None:
 def reset() -> None:
     """Drop every table and seed the database again."""
     with closing(connect()) as conn:
-        tables = conn.execute("SELECT name FROM sqlite_master WHERE type='table'")
+        tables = conn.execute(
+            "SELECT name FROM sqlite_master "
+            "WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
+        )
         for (name,) in tables.fetchall():
             conn.execute(f"DROP TABLE {name}")  # noqa: S608
     init()

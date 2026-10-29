@@ -2,13 +2,13 @@
 
 from typing import Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 State = Literal["waiting", "in_progress", "awaiting_sign_off", "decided"]
 Verdict = Literal["approve", "decline", "refer"]
 
 
-class ClaimSummary(BaseModel):
+class ClaimCore(BaseModel):
     claim_id: str
     summary: str
     claim_type: str
@@ -16,6 +16,11 @@ class ClaimSummary(BaseModel):
     submitted_on: str
     customer_name: str
     status: State
+
+
+class ClaimSummary(ClaimCore):
+    decision: Verdict | None
+    payout: float | None
 
 
 class ClaimItem(BaseModel):
@@ -30,7 +35,47 @@ class ClaimDocument(BaseModel):
     content: str
 
 
-class ClaimDetail(ClaimSummary):
+class DecisionRequest(BaseModel):
+    decision: Verdict
+    payout: float = Field(ge=0)
+    reason: str
+    policy_section: str
+
+
+class DecisionRecord(DecisionRequest):
+    decided_at: str
+
+
+class PaymentRequest(BaseModel):
+    amount: float
+
+
+class Payment(PaymentRequest):
+    paid_at: str
+
+
+class SignOffRequest(BaseModel):
+    handler_id: str
+
+
+class SignOff(SignOffRequest):
+    handler_name: str
+    signed_at: str
+
+
+class StepRequest(BaseModel):
+    thread_id: str
+    kind: Literal["message", "tool_call", "tool_result"]
+    text: str
+
+
+class Step(StepRequest):
+    id: int
+    claim_id: str
+    created_at: str
+
+
+class ClaimDetail(ClaimCore):
     policy_id: str
     customer_id: str
     incident_date: str
@@ -38,9 +83,9 @@ class ClaimDetail(ClaimSummary):
     story: str
     items: list[ClaimItem]
     documents: list[ClaimDocument]
-    decision: None = None
-    payment: None = None
-    sign_off: None = None
+    decision: DecisionRecord | None
+    payment: Payment | None
+    sign_off: SignOff | None
 
 
 class Trip(BaseModel):
