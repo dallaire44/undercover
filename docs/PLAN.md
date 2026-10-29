@@ -207,12 +207,12 @@ Success criteria:
 
 Success criteria:
 
-- [ ] `npm run reset` gives 25 waiting claims.
-- [ ] **Real model, in the browser (with a Playwright script, as in Phase 4).** With `npm run dev` running, "Run the agent" on CLM-1001 shows the claim in progress, the steps appearing as the agent works, and then the decision with its reason and policy section.
-- [ ] **Real model, in the browser.** "Run the agent" on CLM-1013 and CLM-1004 ends with each claim decided or waiting for sign-off, and the queue counts match.
-- [ ] Any claim the real agent approved over $1,000 shows the payment on hold until a handler signs off in the dashboard. (CLM-1003 was also run from the dashboard for this, since the other three claims are under $1,000.)
-- [ ] `docs/STATUS.md` and `README.md` are updated.
-- [ ] `npm run check` passes: ruff, pyright, pytest at 80% or more, ESLint, Prettier, tsc, vitest at 80% or more, and Playwright.
+- [x] `npm run reset` gives 25 waiting claims.
+- [x] **Real model, in the browser (with the Playwright MCP server).** With `npm run dev` running, "Run the agent" on CLM-1001 shows the claim in progress, the steps appearing as the agent works, and then the decision with its reason and policy section.
+- [x] **Real model, in the browser.** "Run the agent" on CLM-1013 and CLM-1004 ends with each claim decided or waiting for sign-off, and the queue counts match.
+- [x] Any claim the real agent approved over $1,000 shows the payment on hold until a handler signs off in the dashboard. (CLM-1003 was also run from the dashboard for this, since the other three claims are under $1,000.)
+- [x] `docs/STATUS.md` and `README.md` are updated.
+- [x] `npm run check` passes: ruff, pyright, pytest at 80% or more, ESLint, Prettier, tsc, vitest at 80% or more, and Playwright.
 
 ## Phase 7: a light and dark slider
 

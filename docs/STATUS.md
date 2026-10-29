@@ -27,6 +27,7 @@ The UnderCover claims pilot, built phase by phase from `docs/PLAN.md`.
 ## Running it
 
 - `npm run dev` starts the backend and the dashboard.
+- `uv run -m agent CLM-1001` runs the agent on one claim from the command line, with the backend up.
 - `npm run reset` rebuilds the database from `data/`: all 25 claims waiting.
 - `npm run check` runs every check.
 

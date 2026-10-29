@@ -10,6 +10,10 @@ This is the repo that accompanies the course. UnderCover is a fictional travel i
 
 _If you're looking at this in VS Code or Cursor, right-click `README.md` in the Explorer on the left and choose **Open Preview** to see it formatted._
 
+## Running the pilot
+
+`uv sync` and `npm install`, then put `OPENROUTER_API_KEY` in `.env`. `npm run dev` starts the backend and the dashboard at http://localhost:5173. Open a claim and choose "Run the agent", or "Work the queue" on the queue page. `npm run reset` starts the claims over, and `npm run check` runs every check. `docs/STATUS.md` has the details.
+
 ## Key links
 
 - My curriculum of courses on Udemy: [edwarddonner.com/curriculum](https://edwarddonner.com/curriculum)
