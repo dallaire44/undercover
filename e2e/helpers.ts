@@ -1,4 +1,4 @@
-import { expect, type Page } from "@playwright/test";
+import { expect, type Locator, type Page } from "@playwright/test";
 
 const STATES = ["Waiting", "In progress", "Waiting for sign-off", "Decided"];
 
@@ -14,3 +14,11 @@ export async function expectCountsMatchChips(page: Page) {
     await expect(tile.locator("strong")).toHaveText(String(chips));
   }
 }
+
+/** True when the slider's dot is right of the track's center. */
+export const dotIsRight = (slider: Locator) =>
+  slider.locator(".switch-dot").evaluate((dot) => {
+    const track = dot.parentElement?.getBoundingClientRect() ?? new DOMRect();
+    const box = dot.getBoundingClientRect();
+    return box.x + box.width / 2 > track.x + track.width / 2;
+  });

@@ -2,8 +2,8 @@ import { useEffect, useState } from "react";
 import { listClaims } from "./api";
 import { Claim } from "./Claim";
 import { Instructions } from "./Instructions";
+import { ModeSwitch } from "./ModeSwitch";
 import { Queue } from "./Queue";
-import { ThemeSwitch } from "./ThemeSwitch";
 import { useLoad } from "./useLoad";
 
 function useHash() {
@@ -45,7 +45,20 @@ export function App() {
         <nav>
           <a href="#/">Queue</a>
           <a href="#/instructions">Agent instructions</a>
-          <ThemeSwitch />
+          <ModeSwitch
+            label="Dark mode"
+            attribute="data-theme"
+            on="dark"
+            off="light"
+            storageKey="undercover-theme"
+          />
+          <ModeSwitch
+            label="Color-blind mode"
+            attribute="data-colors"
+            on="color-blind"
+            off="brand"
+            storageKey="undercover-colors"
+          />
         </nav>
       </header>
       <main>

@@ -8,6 +8,8 @@
       document.documentElement.dataset.theme =
         localStorage.getItem("undercover-theme") ??
         (matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");
+      document.documentElement.dataset.colors =
+        localStorage.getItem("undercover-colors") ?? "brand";
     </script>
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />

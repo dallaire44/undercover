@@ -6,7 +6,30 @@
   --link: #0b6c8a;
   --row: #f0f4f5;
   --action: #118ab2;
+  --waiting: #118ab2;
+  --waiting-ink: #ffffff;
+  --in-progress: #f78c6b;
+  --in-progress-ink: #073b4c;
+  --sign-off: #ffc145;
+  --sign-off-ink: #073b4c;
+  --decided: #06d6a0;
+  --decided-ink: #073b4c;
+  --alert: #ef476f;
+  --alert-ink: #ffffff;
   color-scheme: light;
+}
+
+:root[data-colors="color-blind"] {
+  --waiting: #0072b2;
+  --waiting-ink: #ffffff;
+  --in-progress: #d55e00;
+  --in-progress-ink: #000000;
+  --sign-off: #f0e442;
+  --sign-off-ink: #000000;
+  --decided: #009e73;
+  --decided-ink: #000000;
+  --alert: #cc79a7;
+  --alert-ink: #000000;
 }
 
 :root[data-theme="dark"] {
@@ -170,7 +193,7 @@ td .num {
 }
 
 td:nth-child(2) {
-  min-width: 18rem;
+  min-width: 15rem;
 }
 
 td:not(:nth-child(2)) {
@@ -203,26 +226,38 @@ dd {
 }
 
 .state-waiting {
-  background: #118ab2;
-  color: #ffffff;
+  background: var(--waiting);
+  color: var(--waiting-ink);
 }
 
 .state-in_progress,
 .verdict-decline {
-  background: #f78c6b;
-  color: #073b4c;
+  background: var(--in-progress);
+  color: var(--in-progress-ink);
 }
 
 .state-awaiting_sign_off,
 .verdict-refer {
-  background: #ffc145;
-  color: #073b4c;
+  background: var(--sign-off);
+  color: var(--sign-off-ink);
 }
 
 .state-decided,
 .verdict-approve {
-  background: #06d6a0;
-  color: #073b4c;
+  background: var(--decided);
+  color: var(--decided-ink);
+}
+
+.verdict-symbol {
+  display: none;
+  width: 0.85em;
+  height: 0.85em;
+  margin-right: 0.3rem;
+  vertical-align: -0.1em;
+}
+
+:root[data-colors="color-blind"] .verdict-symbol {
+  display: inline;
 }
 
 nav {
@@ -256,8 +291,8 @@ select {
 }
 
 .on-hold {
-  background: #ef476f;
-  color: #ffffff;
+  background: var(--alert);
+  color: var(--alert-ink);
 }
 
 .on-hold select {

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { dotIsRight } from "./helpers";
 
 const LIGHT = "rgb(240, 244, 245)";
 const DARK = "rgb(4, 35, 46)";
@@ -46,17 +47,10 @@ for (const scheme of ["light", "dark"] as const) {
   }) => {
     await page.emulateMedia({ colorScheme: scheme });
     await page.goto("/");
-    const dotIsRight = () =>
-      page.locator(".switch-dot").evaluate((dot) => {
-        const track =
-          dot.parentElement?.getBoundingClientRect() ?? new DOMRect();
-        const box = dot.getBoundingClientRect();
-        return box.x + box.width / 2 > track.x + track.width / 2;
-      });
     const startsOn = scheme === "dark";
     const expectDotAt = async (on: boolean) => {
       await expect(slider(page)).toHaveAttribute("aria-checked", String(on));
-      await expect.poll(dotIsRight).toBe(on);
+      await expect.poll(() => dotIsRight(slider(page))).toBe(on);
     };
     await expectDotAt(startsOn);
     await slider(page).click();
@@ -81,10 +75,10 @@ test("the keyboard reaches the slider and Space flips it", async ({ page }) => {
 test("reduced motion turns off the dot's transition", async ({ page }) => {
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.goto("/");
-  await expect(page.locator(".switch-dot")).toHaveCSS(
-    "transition-duration",
-    "0s",
-  );
+  for (const name of ["Dark mode", "Color-blind mode"]) {
+    const dot = page.getByRole("switch", { name }).locator(".switch-dot");
+    await expect(dot).toHaveCSS("transition-duration", "0s");
+  }
 });
 
 const COMBINATIONS = [

@@ -253,13 +253,13 @@ Success criteria:
 
 Success criteria:
 
-- [ ] `vitest`: `ModeSwitch` works for both modes. It is a switch with its label as its name, `aria-checked` matches the attribute on `<html>`, and clicking it flips both and saves the choice under its own key, without touching the other mode.
-- [ ] `vitest`: each decision chip renders its symbol (check, cross or arrow) with `aria-hidden="true"`, and the chip's accessible name is still just its word, such as "Approved".
-- [ ] Playwright e2e: with nothing saved, the mode is off and the brand is unchanged. A Waiting chip is Cerulean `rgb(17, 138, 178)` with white text, a Decided chip is Sea Green, and no symbol is visible.
-- [ ] Playwright e2e: turning on "Color-blind mode" changes the chips to the colors in `docs/ACCESSIBILITY.md`. Waiting becomes `rgb(0, 114, 178)` with white text, and Decided becomes `rgb(0, 158, 115)` with black text. A decision chip shows its symbol, on the claim page and in the queue's Decision column, and the payment-on-hold box becomes `rgb(204, 121, 167)` with black text, on a claim the test approves over $1,000 through the API. The mode stays on after a reload, and turning it off restores the brand colors.
-- [ ] Playwright e2e: the two sliders are independent. With both on, the page is dark and the chips use the color-blind colors. Turning either off leaves the other as it was.
-- [ ] Playwright e2e: each slider puts its dot at the left when off and at the right when on, with color-blind mode on and off, and Space flips each from the keyboard.
-- [ ] No flash on load, checked as in Phase 7: when the HTML finishes parsing, before the app runs, `data-colors` already holds the saved choice, or `brand` with nothing saved.
-- [ ] Checked in the browser with the Playwright MCP server if its tools are loaded, otherwise with a Playwright script: the queue, a decided claim and a claim waiting for sign-off, with the mode on, in light and in dark. The header's two sliders line up with the page links, and the dot is at the left when off and at the right when on. Screenshots are reviewed.
-- [ ] `docs/STATUS.md` describes the color-blind mode and points to `docs/ACCESSIBILITY.md`.
-- [ ] `npm run check` passes.
+- [x] `vitest`: `ModeSwitch` works for both modes. It is a switch with its label as its name, `aria-checked` matches the attribute on `<html>`, and clicking it flips both and saves the choice under its own key, without touching the other mode.
+- [x] `vitest`: each decision chip renders its symbol (check, cross or arrow) with `aria-hidden="true"`, and the chip's accessible name is still just its word, such as "Approved".
+- [x] Playwright e2e: with nothing saved, the mode is off and the brand is unchanged. A Waiting chip is Cerulean `rgb(17, 138, 178)` with white text, a Decided chip is Sea Green, and no symbol is visible.
+- [x] Playwright e2e: turning on "Color-blind mode" changes the chips to the colors in `docs/ACCESSIBILITY.md`. Waiting becomes `rgb(0, 114, 178)` with white text, and Decided becomes `rgb(0, 158, 115)` with black text. A decision chip shows its symbol, on the claim page and in the queue's Decision column, and the payment-on-hold box becomes `rgb(204, 121, 167)` with black text, on a claim the test approves over $1,000 through the API. The mode stays on after a reload, and turning it off restores the brand colors.
+- [x] Playwright e2e: the two sliders are independent. With both on, the page is dark and the chips use the color-blind colors. Turning either off leaves the other as it was.
+- [x] Playwright e2e: each slider puts its dot at the left when off and at the right when on, with color-blind mode on and off, and Space flips each from the keyboard.
+- [x] No flash on load, checked as in Phase 7: when the HTML finishes parsing, before the app runs, `data-colors` already holds the saved choice, or `brand` with nothing saved.
+- [x] Checked in the browser with the Playwright MCP server if its tools are loaded, otherwise with a Playwright script: the queue, a decided claim and a claim waiting for sign-off, with the mode on, in light and in dark. The header's two sliders line up with the page links, and the dot is at the left when off and at the right when on. Screenshots are reviewed.
+- [x] `docs/STATUS.md` describes the color-blind mode and points to `docs/ACCESSIBILITY.md`.
+- [x] `npm run check` passes.
