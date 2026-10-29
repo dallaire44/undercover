@@ -191,12 +191,12 @@ Success criteria:
 
 Success criteria:
 
-- [ ] `vitest` tests cover the steps timeline, the polling while in progress, the sign-off panel and the instructions page.
-- [ ] Playwright e2e: the test approves CLM-1012 over $1,000 through the API and tries to pay it, which returns 409. The claim page shows "Waiting for sign-off" and the payment on hold. Signing off as Priya Raman shows "Decided" and the payment, and the queue counts update.
-- [ ] Playwright e2e: steps posted through the API show up on the claim page in order.
-- [ ] Playwright e2e: the instructions page shows the text from `backend/instructions.md` and has no way to edit it.
-- [ ] Checked in the browser (with a Playwright script, as in Phase 4): the steps timeline, the sign-off panel and the instructions page in light and dark mode, with screenshots reviewed.
-- [ ] `npm run check:ts` and `npm run e2e` pass.
+- [x] `vitest` tests cover the steps timeline, the polling while in progress, the sign-off panel and the instructions page.
+- [x] Playwright e2e: the test approves CLM-1012 over $1,000 through the API and tries to pay it, which returns 409. The claim page shows "Waiting for sign-off" and the payment on hold. Signing off as Priya Raman shows "Decided" and the payment, and the queue counts update.
+- [x] Playwright e2e: steps posted through the API show up on the claim page in order.
+- [x] Playwright e2e: the instructions page shows the text from `backend/instructions.md` and has no way to edit it.
+- [x] Checked in the browser (with the Playwright MCP server): the steps timeline, the sign-off panel and the instructions page in light and dark mode, with screenshots reviewed.
+- [x] `npm run check:ts` and `npm run e2e` pass.
 
 ## Phase 6: end to end, and handover
 

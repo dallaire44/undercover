@@ -64,6 +64,21 @@ export interface ClaimDetail {
   sign_off: SignOff | null;
 }
 
+export interface Step {
+  id: number;
+  claim_id: string;
+  thread_id: string;
+  kind: "message" | "tool_call" | "tool_result";
+  text: string;
+  created_at: string;
+}
+
+export interface Handler {
+  handler_id: string;
+  name: string;
+  role: string;
+}
+
 export interface Policy {
   policy_id: string;
   plan_name: string;
@@ -91,15 +106,34 @@ export interface History {
   previous_claims: PreviousClaim[];
 }
 
-async function get<T>(path: string): Promise<T> {
-  const response = await fetch(path);
+async function request(path: string, init?: RequestInit) {
+  const response = await fetch(path, init);
   if (!response.ok)
     throw new Error(`${path} returned ${String(response.status)}`);
-  return (await response.json()) as T;
+  return response;
 }
+
+async function get<T>(path: string): Promise<T> {
+  return (await (await request(path)).json()) as T;
+}
+
+const post = (path: string, body?: object) =>
+  request(path, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(body),
+  });
 
 export const listClaims = () => get<ClaimSummary[]>("/api/claims");
 export const getClaim = (id: string) => get<ClaimDetail>(`/api/claims/${id}`);
 export const getPolicy = (id: string) => get<Policy>(`/api/policies/${id}`);
 export const getHistory = (customerId: string) =>
   get<History>(`/api/customers/${customerId}/history`);
+export const listSteps = (id: string) => get<Step[]>(`/api/claims/${id}/steps`);
+export const listHandlers = () => get<Handler[]>("/api/handlers");
+export const getInstructions = async () =>
+  (await request("/api/instructions")).text();
+export const startAgent = (id: string) => post(`/api/claims/${id}/agent`);
+export const workQueue = () => post("/api/queue/agent");
+export const signOff = (id: string, handlerId: string) =>
+  post(`/api/claims/${id}/sign-off`, { handler_id: handlerId });

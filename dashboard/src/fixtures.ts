@@ -1,5 +1,12 @@
 import { vi } from "vitest";
-import type { ClaimDetail, ClaimSummary, History, Policy } from "./api";
+import type {
+  ClaimDetail,
+  ClaimSummary,
+  Handler,
+  History,
+  Policy,
+  Step,
+} from "./api";
 
 export const waitingClaim: ClaimSummary = {
   claim_id: "CLM-1001",
@@ -93,16 +100,36 @@ export const history: History = {
   ],
 };
 
-/** Answer each fetch with the JSON registered for its path. */
+export const handlers: Handler[] = [
+  {
+    handler_id: "HND-01",
+    name: "Dana Whitfield",
+    role: "Senior Claims Handler",
+  },
+  { handler_id: "HND-03", name: "Priya Raman", role: "Claims Handler" },
+];
+
+export function step(id: number, kind: Step["kind"], text: string): Step {
+  return {
+    id,
+    claim_id: "CLM-1001",
+    thread_id: "t1",
+    kind,
+    text,
+    created_at: "2026-06-25T10:00:00+00:00",
+  };
+}
+
+/** Answer each fetch with what is registered for its path. Strings go as text. */
 export function stubApi(routes: Record<string, unknown>) {
-  vi.stubGlobal(
-    "fetch",
-    vi.fn((path: string) =>
-      Promise.resolve(
-        path in routes
-          ? new Response(JSON.stringify(routes[path]))
-          : new Response("", { status: 404 }),
-      ),
-    ),
-  );
+  const fetchMock = vi.fn((path: string) => {
+    if (!(path in routes))
+      return Promise.resolve(new Response("", { status: 404 }));
+    const body = routes[path];
+    return Promise.resolve(
+      new Response(typeof body === "string" ? body : JSON.stringify(body)),
+    );
+  });
+  vi.stubGlobal("fetch", fetchMock);
+  return fetchMock;
 }

@@ -1,21 +1,12 @@
 import { expect, test } from "@playwright/test";
-
-const STATES = ["Waiting", "In progress", "Waiting for sign-off", "Decided"];
+import { expectCountsMatchChips } from "./helpers";
 
 test("the queue shows 25 claims and the counts match the chips", async ({
   page,
 }) => {
   await page.goto("/");
   await expect(page.locator("tbody tr")).toHaveCount(25);
-  const table = page.getByRole("table");
-  const tiles = page.getByRole("list", { name: "Claims by status" });
-  for (const label of STATES) {
-    const tile = tiles
-      .getByRole("listitem")
-      .filter({ has: page.getByText(label, { exact: true }) });
-    const chips = await table.getByText(label, { exact: true }).count();
-    await expect(tile.locator("strong")).toHaveText(String(chips));
-  }
+  await expectCountsMatchChips(page);
 });
 
 test("a decision shows in the queue row", async ({ page, request }) => {

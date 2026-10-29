@@ -1,4 +1,4 @@
-import type { ClaimSummary, State } from "./api";
+import { workQueue, type ClaimSummary, type State } from "./api";
 import { StatusChip, VerdictChip } from "./Chips";
 import { date, money, STATES, titleCase } from "./format";
 
@@ -65,10 +65,21 @@ const COLUMNS = [
 ];
 const RIGHT = new Set(["Claimed", "Payout"]);
 
-export function Queue({ claims }: Readonly<{ claims: ClaimSummary[] }>) {
+export function Queue({
+  claims,
+  onWork,
+}: Readonly<{ claims: ClaimSummary[]; onWork: () => void }>) {
   return (
     <>
       <h1>Claims queue</h1>
+      <p>
+        <button
+          type="button"
+          onClick={() => void workQueue().then(onWork, onWork)}
+        >
+          Work the queue
+        </button>
+      </p>
       <Counts claims={claims} />
       <div className="panel table-panel">
         <table>

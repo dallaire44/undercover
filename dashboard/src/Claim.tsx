@@ -1,14 +1,21 @@
 import { useCallback } from "react";
-import { getClaim } from "./api";
+import { getClaim, startAgent } from "./api";
 import { StatusChip } from "./Chips";
 import { Decision } from "./Decision";
 import { date, money, titleCase } from "./format";
 import { HistoryPanel, PolicyPanel } from "./Records";
+import { SignOffPanel } from "./SignOffPanel";
+import { Steps } from "./Steps";
 import { useLoad } from "./useLoad";
 
 export function Claim({ claimId }: Readonly<{ claimId: string }>) {
-  const { data: claim, failed } = useLoad(
+  const {
+    data: claim,
+    failed,
+    reload,
+  } = useLoad(
     useCallback(() => getClaim(claimId), [claimId]),
+    (loaded) => loaded?.status === "in_progress",
   );
   if (failed) return <p>Claim {claimId} was not found.</p>;
   if (!claim) return <p className="muted">Loading</p>;
@@ -21,6 +28,16 @@ export function Claim({ claimId }: Readonly<{ claimId: string }>) {
         <span className="num">{claim.claim_id}</span>{" "}
         <StatusChip state={claim.status} />
       </h1>
+      {claim.status === "waiting" && (
+        <p>
+          <button
+            type="button"
+            onClick={() => void startAgent(claimId).then(reload, reload)}
+          >
+            Run the agent
+          </button>
+        </p>
+      )}
       <section className="panel" aria-labelledby="summary-title">
         <h2 id="summary-title">{claim.summary}</h2>
         <dl>
@@ -38,7 +55,9 @@ export function Claim({ claimId }: Readonly<{ claimId: string }>) {
           <dd className="num">{money(claim.amount_claimed)}</dd>
         </dl>
       </section>
+      <SignOffPanel claim={claim} onSignedOff={() => void reload()} />
       <Decision claim={claim} />
+      <Steps claimId={claimId} working={claim.status === "in_progress"} />
       <section className="panel" aria-labelledby="story-title">
         <h2 id="story-title">Story</h2>
         <p>{claim.story}</p>

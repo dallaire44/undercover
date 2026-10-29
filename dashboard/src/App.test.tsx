@@ -42,3 +42,15 @@ it("follows the hash when it changes", async () => {
   window.location.hash = "#/claims/CLM-1001";
   expect(await screen.findByText("Back to the queue")).toBeDefined();
 });
+
+it("shows the instructions page and links to it", async () => {
+  stubApi({ "/api/instructions": "Decide each claim." });
+  window.location.hash = "#/instructions";
+  render(<App />);
+  expect(await screen.findByText("Decide each claim.")).toBeDefined();
+  expect(
+    screen
+      .getByRole("link", { name: "Agent instructions" })
+      .getAttribute("href"),
+  ).toBe("#/instructions");
+});
