@@ -53,14 +53,14 @@ def test_history_has_no_contact_details(client):
         assert private not in text
 
 
-def test_policy_wording(client):
-    text = client.get("/api/policy-wording").text
-    assert text.startswith("# UnderCover Travel Insurance: Policy Wording")
+def test_whole_wording_is_gone(client):
+    assert client.get("/api/policy-wording").status_code == 404
 
 
 def test_instructions(client):
-    text = client.get("/api/instructions").text
-    assert text == (HERE / "instructions.md").read_text(encoding="utf-8")
+    text = client.get("/api/instructions/claim").text
+    assert text == (HERE / "instructions" / "claim.md").read_text(encoding="utf-8")
+    assert client.get("/api/instructions/other").status_code == 422
 
 
 def test_handlers(client):

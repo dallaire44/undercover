@@ -3,7 +3,7 @@
 import sys
 import uuid
 
-from agent.main import run
+from agent.claim import run
 
 if __name__ == "__main__":
     print(run(sys.argv[1], str(uuid.uuid4())))

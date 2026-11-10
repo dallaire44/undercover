@@ -68,7 +68,7 @@ export interface Step {
   id: number;
   claim_id: string;
   thread_id: string;
-  kind: "message" | "tool_call" | "tool_result";
+  kind: "message" | "tool_call" | "tool_result" | "read";
   text: string;
   created_at: string;
 }
@@ -132,7 +132,7 @@ export const getHistory = (customerId: string) =>
 export const listSteps = (id: string) => get<Step[]>(`/api/claims/${id}/steps`);
 export const listHandlers = () => get<Handler[]>("/api/handlers");
 export const getInstructions = async () =>
-  (await request("/api/instructions")).text();
+  (await request("/api/instructions/claim")).text();
 export const startAgent = (id: string) => post(`/api/claims/${id}/agent`);
 export const workQueue = () => post("/api/queue/agent");
 export const signOff = (id: string, handlerId: string) =>

@@ -65,7 +65,7 @@ class SignOff(SignOffRequest):
 
 class StepRequest(BaseModel):
     thread_id: str
-    kind: Literal["message", "tool_call", "tool_result"]
+    kind: Literal["message", "tool_call", "tool_result", "read"]
     text: str
 
 

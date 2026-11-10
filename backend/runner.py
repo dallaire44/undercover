@@ -4,7 +4,7 @@ import sqlite3
 import uuid
 from contextlib import closing
 
-from agent.main import run as run_agent
+from agent.claim import run as run_agent
 from backend import db, records, rules, steps
 from backend.models import StepRequest
 

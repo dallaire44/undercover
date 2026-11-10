@@ -60,7 +60,7 @@ test("the agent's steps show in order", async ({ page, request }) => {
 test("the instructions page shows the instructions and cannot edit them", async ({
   page,
 }) => {
-  const text = readFileSync("backend/instructions.md", "utf-8");
+  const text = readFileSync("backend/instructions/claim.md", "utf-8");
   await page.goto("/");
   await page.getByRole("link", { name: "Agent instructions" }).click();
   await expect(page.locator("pre")).toHaveText(text.trim());

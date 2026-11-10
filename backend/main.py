@@ -4,11 +4,12 @@ import sqlite3
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from pathlib import Path
+from typing import Literal
 
 from fastapi import BackgroundTasks, Depends, FastAPI
 from fastapi.responses import PlainTextResponse
 
-from backend import db, records, rules, runner, steps
+from backend import db, documents, records, rules, runner, steps
 from backend.models import (
     ClaimDetail,
     ClaimSummary,
@@ -72,23 +73,41 @@ def get_claim_history(
 
 
 @app.get(
-    "/api/policy-wording",
-    operation_id="get_policy_wording",
-    response_class=PlainTextResponse,
+    "/api/documents", operation_id="list_sections", response_class=PlainTextResponse
 )
-def get_policy_wording() -> str:
-    """Get the policy wording as Markdown."""
-    return (db.DATA / "policy_wording.md").read_text(encoding="utf-8")
+def list_sections() -> str:
+    """List the sections of the policy wording and the claims manual."""
+    return documents.contents()
 
 
 @app.get(
-    "/api/instructions",
+    "/api/documents/search",
+    operation_id="search_documents",
+    response_class=PlainTextResponse,
+)
+def search_documents(query: str) -> str:
+    """Find the sections of the wording and the manual that match the query."""
+    return documents.search(query)
+
+
+@app.get(
+    "/api/documents/{document}/sections/{number}",
+    operation_id="read_section",
+    response_class=PlainTextResponse,
+)
+def read_section(document: str, number: str) -> str:
+    """Read one section of the policy wording or the claims manual."""
+    return documents.read(document, number)
+
+
+@app.get(
+    "/api/instructions/{agent}",
     operation_id="get_instructions",
     response_class=PlainTextResponse,
 )
-def get_instructions() -> str:
-    """Get the agent's instructions as Markdown."""
-    return (HERE / "instructions.md").read_text(encoding="utf-8")
+def get_instructions(agent: Literal["claim"]) -> str:
+    """Get an agent's instructions as Markdown."""
+    return (HERE / "instructions" / f"{agent}.md").read_text(encoding="utf-8")
 
 
 @app.get("/api/handlers", operation_id="list_handlers")

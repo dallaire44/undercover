@@ -6,8 +6,14 @@ def test_read_tools(client):
     assert "Rome" in tools.get_policy.invoke({"policy_id": "POL-2001"})
     history = tools.get_claim_history.invoke({"customer_id": "CUS-3001"})
     assert "CLM-0412" in history
-    wording = tools.get_policy_wording.invoke({})
-    assert wording.startswith("# UnderCover Travel Insurance: Policy Wording")
+
+
+def test_lookup_tools(client):
+    assert "- 9. Repeat claims" in tools.list_sections.invoke({})
+    found = tools.search_documents.invoke({"query": "wild animals"})
+    assert found.startswith("Claims manual, 7. Interpretation notes")
+    section = tools.read_section.invoke({"document": "claims_manual", "number": "10"})
+    assert section.startswith("Claims manual, 10. Meals without receipts")
 
 
 def test_refusal_goes_back_to_the_model(client):

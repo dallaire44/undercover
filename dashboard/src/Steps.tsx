@@ -6,6 +6,7 @@ const LABELS: Record<Step["kind"], string> = {
   message: "Agent",
   tool_call: "Tool call",
   tool_result: "Tool result",
+  read: "Read",
 };
 const FOLD_AT = 200;
 

@@ -44,7 +44,7 @@ it("follows the hash when it changes", async () => {
 });
 
 it("shows the instructions page and links to it", async () => {
-  stubApi({ "/api/instructions": "Decide each claim." });
+  stubApi({ "/api/instructions/claim": "Decide each claim." });
   window.location.hash = "#/instructions";
   render(<App />);
   expect(await screen.findByText("Decide each claim.")).toBeDefined();

@@ -10,7 +10,7 @@ afterEach(() => {
 
 it("shows the instructions read only", async () => {
   stubApi({
-    "/api/instructions": "# UnderCover Agent: instructions\n\nDecide.",
+    "/api/instructions/claim": "# UnderCover Agent: instructions\n\nDecide.",
   });
   render(<Instructions />);
   expect(
