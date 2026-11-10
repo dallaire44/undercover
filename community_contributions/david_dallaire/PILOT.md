@@ -2,14 +2,19 @@
 
 This comes from Ed Donner's Udemy course, [AI FDE: The Forward Deployed Engineer & Agentic AI Architect](https://www.udemy.com/course/ai-fde-forward-deployed-engineer-agentic-ai-architect/). In the Week 1 Day 3 build, I am UnderCover's forward deployed engineer (FDE), and I direct a coding agent, Claude Code. It plans the pilot from the customer's documents, I review the plan, it builds the plan phase by phase, and I review the result.
 
-My build: https://github.com/dallaire44/undercover/tree/week1day3_FDE
+My build: https://github.com/dallaire44/undercover/tree/week1day3-redo
 
 The plan it implemented is [PLAN.md](PLAN.md), a copy of `docs/PLAN.md`.
 
-- [What was built](#what-was-built)
-- [The commit path](#the-commit-path)
-- [My takeaways: KO the Code Slop](#my-takeaways)
-- [Appendix: the diagrams](#appendix-the-diagrams)
+- [The UnderCover pilot, built from its plan](#the-undercover-pilot-built-from-its-plan)
+  - [What was built](#what-was-built)
+  - [The commit path](#the-commit-path)
+  - [My takeaways](#my-takeaways)
+    - [KO the Code Slop](#ko-the-code-slop)
+  - [Appendix: the diagrams](#appendix-the-diagrams)
+    - [The /dfd-mermaid skill](#the-dfd-mermaid-skill)
+    - [Diagram 1: the pilot](#diagram-1-the-pilot)
+    - [Diagram 2: the commit path](#diagram-2-the-commit-path)
 
 ## What was built
 
@@ -52,17 +57,17 @@ flowchart LR
 
 Each phase had its own success criteria (75 in all), was built with tests, and ended in one commit through the pre-commit hook. Phases 7 and 8 are my additions. Each went into the customer's documents first (`docs/SPEC.md`, then a new `docs/ACCESSIBILITY.md`), then became a phase with success criteria.
 
-| Phase | What it built | Criteria |
-|---|---|---|
-| 0. The commit guard | A Claude Code `PreToolUse` hook that blocks `--no-verify`, `git commit -n`, `LEFTHOOK=0` and `core.hooksPath`, and logs every git command it sees | 5 |
-| 1. The records and the queue | The SQLite database seeded from `data/`, the seven read operations, and the agent's instructions in `backend/instructions.md` | 13 |
-| 2. Decisions, payments, sign-off and steps | The payment rules: an approval over $1,000 waits for sign-off, and `pay_claim` refuses it with HTTP 409 until a handler signs off | 11 |
-| 3. The UnderCover Agent | `create_agent` with six tools. The backend runs it on one claim or the whole queue, and puts a claim back to waiting if a run ends without a decision | 10 |
-| 4. The dashboard: the queue and the claim | React, Vite and TypeScript in UnderCover's brand: the state counts, the eight-column queue and each claim in full. Playwright gets its own backend and database | 6 |
-| 5. The dashboard: the agent at work | "Run the agent", "Work the queue", the agent's steps as a timeline, the sign-off panel and the read-only instructions | 6 |
-| 6. End to end, and handover | The real agent run from the dashboard on CLM-1001, CLM-1013, CLM-1004 and CLM-1003, checking that a payout over $1,000 waits for sign-off. `docs/STATUS.md` and `README.md` updated | 6 |
-| 7. A light and dark slider (mine) | A "Dark mode" switch on every page. The mode is one attribute on `<html>`, set before the page draws, so the wrong mode never flashes | 8 |
-| 8. A color-blind mode (mine) | A second switch that moves the state and decision colors to the Okabe-Ito palette and adds a check, cross or arrow to each decision | 10 |
+| Phase                                      | What it built                                                                                                                                                                       | Criteria |
+| ------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
+| 0. The commit guard                        | A Claude Code `PreToolUse` hook that blocks `--no-verify`, `git commit -n`, `LEFTHOOK=0` and `core.hooksPath`, and logs every git command it sees                                   | 5        |
+| 1. The records and the queue               | The SQLite database seeded from `data/`, the seven read operations, and the agent's instructions in `backend/instructions.md`                                                       | 13       |
+| 2. Decisions, payments, sign-off and steps | The payment rules: an approval over $1,000 waits for sign-off, and `pay_claim` refuses it with HTTP 409 until a handler signs off                                                   | 11       |
+| 3. The UnderCover Agent                    | `create_agent` with six tools. The backend runs it on one claim or the whole queue, and puts a claim back to waiting if a run ends without a decision                               | 10       |
+| 4. The dashboard: the queue and the claim  | React, Vite and TypeScript in UnderCover's brand: the state counts, the eight-column queue and each claim in full. Playwright gets its own backend and database                     | 6        |
+| 5. The dashboard: the agent at work        | "Run the agent", "Work the queue", the agent's steps as a timeline, the sign-off panel and the read-only instructions                                                               | 6        |
+| 6. End to end, and handover                | The real agent run from the dashboard on CLM-1001, CLM-1013, CLM-1004 and CLM-1003, checking that a payout over $1,000 waits for sign-off. `docs/STATUS.md` and `README.md` updated | 6        |
+| 7. A light and dark slider (mine)          | A "Dark mode" switch on every page. The mode is one attribute on `<html>`, set before the page draws, so the wrong mode never flashes                                               | 8        |
+| 8. A color-blind mode (mine)               | A second switch that moves the state and decision colors to the Okabe-Ito palette and adds a check, cross or arrow to each decision                                                 | 10       |
 
 At the end, the checks hold 42 pytest tests (98% coverage), 41 vitest tests (99%) and 26 Playwright tests, with Ruff, pyright, ESLint, Prettier and tsc on top.
 
@@ -142,12 +147,12 @@ Both diagrams were drawn by Claude Code with `/dfd-mermaid`, a Claude Code skill
 
 A DFD shows what data moves where, not the order things happen in. It has four kinds of element:
 
-| Shape | Element | Meaning |
-|---|---|---|
-| Rectangle | External entity | A person or system outside the part being drawn, which sends or receives data |
-| Circle, numbered 1.0, 2.0 | Process | Something that takes data in and sends data out |
-| Two parallel lines | Data store | Data at rest |
-| Labeled arrow | Data flow | The data that moves, named on the arrow |
+| Shape                     | Element         | Meaning                                                                       |
+| ------------------------- | --------------- | ----------------------------------------------------------------------------- |
+| Rectangle                 | External entity | A person or system outside the part being drawn, which sends or receives data |
+| Circle, numbered 1.0, 2.0 | Process         | Something that takes data in and sends data out                               |
+| Two parallel lines        | Data store      | Data at rest                                                                  |
+| Labeled arrow             | Data flow       | The data that moves, named on the arrow                                       |
 
 The skill holds Claude to the notation's rules:
 
@@ -160,14 +165,14 @@ Mermaid has no parallel-line shape, so the skill draws a store as a borderless b
 
 ### Diagram 1: the pilot
 
-| Element | Kind | In the build |
-|---|---|---|
-| Claims handler | External entity | One of UnderCover's three handlers, using the dashboard |
-| Model on OpenRouter | External entity | The LLM the agent calls |
-| 1.0 Manage Claims | Process | The FastAPI backend and the React dashboard. It serves the queue and the claims, enforces the payment rules and starts the agent |
-| 2.0 Decide Claim | Process | The UnderCover Agent, `create_agent` with six tools |
-| D1 Seed data | Data store | `data/`, copied into SQLite on first start |
-| D2 Claims database | Data store | `undercover.db`: the claims, decisions, payments, sign-offs and steps |
+| Element             | Kind            | In the build                                                                                                                     |
+| ------------------- | --------------- | -------------------------------------------------------------------------------------------------------------------------------- |
+| Claims handler      | External entity | One of UnderCover's three handlers, using the dashboard                                                                          |
+| Model on OpenRouter | External entity | The LLM the agent calls                                                                                                          |
+| 1.0 Manage Claims   | Process         | The FastAPI backend and the React dashboard. It serves the queue and the claims, enforces the payment rules and starts the agent |
+| 2.0 Decide Claim    | Process         | The UnderCover Agent, `create_agent` with six tools                                                                              |
+| D1 Seed data        | Data store      | `data/`, copied into SQLite on first start                                                                                       |
+| D2 Claims database  | Data store      | `undercover.db`: the claims, decisions, payments, sign-offs and steps                                                            |
 
 What it shows:
 
@@ -179,14 +184,14 @@ To keep two processes, 1.0 combines the backend and the dashboard. Drawing them 
 
 ### Diagram 2: the commit path
 
-| Element | Kind | In the build |
-|---|---|---|
-| Claude Code | External entity | The coding agent, running Bash commands |
-| 1.0 Guard Command | Process | The `PreToolUse` hook, `.claude/hooks/guard-commit.mjs` (Round 2 in my takeaways) |
-| 2.0 Run Checks | Process | Lefthook's pre-commit hook |
-| D1 guard-calls.log | Data store | `~/.claude/guard-calls.log`: every git command, with `blocked` true or false |
-| D2 blocked-commits.log | Data store | `~/.claude/blocked-commits.log`: blocked commands only |
-| D3 Git repository | Data store | The repo's commit history |
+| Element                | Kind            | In the build                                                                      |
+| ---------------------- | --------------- | --------------------------------------------------------------------------------- |
+| Claude Code            | External entity | The coding agent, running Bash commands                                           |
+| 1.0 Guard Command      | Process         | The `PreToolUse` hook, `.claude/hooks/guard-commit.mjs` (Round 2 in my takeaways) |
+| 2.0 Run Checks         | Process         | Lefthook's pre-commit hook                                                        |
+| D1 guard-calls.log     | Data store      | `~/.claude/guard-calls.log`: every git command, with `blocked` true or false      |
+| D2 blocked-commits.log | Data store      | `~/.claude/blocked-commits.log`: blocked commands only                            |
+| D3 Git repository      | Data store      | The repo's commit history                                                         |
 
 What it shows:
 
