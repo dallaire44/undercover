@@ -5,6 +5,10 @@
 *.pem
 *.key
 
+community_contributions/dd_archive
+community_contributions/dd_archive/*
+
+
 # Python
 __pycache__/
 *.py[cod]
