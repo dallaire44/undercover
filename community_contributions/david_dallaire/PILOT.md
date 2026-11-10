@@ -1,229 +1,196 @@
-# The UnderCover pilot, with three additions
+# The UnderCover pilot, built from its plan
 
-This comes from following Ed Donner's course on Udemy, [AI FDE: The Forward Deployed Engineer & Agentic AI Architect](https://www.udemy.com/course/ai-fde-forward-deployed-engineer-agentic-ai-architect/): *The complete roadmap to FDE and AI Architect with Agent Harness Engineering, LangGraph, ADLC, MCP, AWS AgentCore, Evals*.
+This comes from Ed Donner's Udemy course, [AI FDE: The Forward Deployed Engineer & Agentic AI Architect](https://www.udemy.com/course/ai-fde-forward-deployed-engineer-agentic-ai-architect/). In the Week 1 Day 3 build, I am UnderCover's forward deployed engineer (FDE), and I direct a coding agent, Claude Code. It plans the pilot from the customer's documents, I review the plan, it builds the plan phase by phase, and I review the result.
 
-Week 1 Day 3 is a forward deployed engineer (FDE) build exercise. The client is UnderCover Travel Insurance. Its documents say what the business needs (`docs/SPEC.md`) and set the tech choices (`docs/TECH_STACK.md`). As its FDE, I directed a coding agent, Claude Code, to build the pilot from them:
+My build: https://github.com/dallaire44/undercover/tree/week1day3_FDE
 
-1. The agent plans the pilot.
-2. I review the plan.
-3. The agent implements it, with every check passing.
-4. I review and test the result, and sign it off.
+The plan it implemented is [PLAN.md](PLAN.md), a copy of `docs/PLAN.md`.
 
-The aim of this write-up is to share what I came up with: the pilot, three additions of my own, and my takeaways. My build is here: https://github.com/dallaire44/undercover/tree/week1day3_FDE
-
-In this write-up:
-
-- [The application](#the-application): what the pilot does, with a screenshot of my additions
-- [What was built](#what-was-built): the six phases of the pilot, then my three additions in Phases 7 to 9
-- [My takeaways](#my-takeaways): a plan in small parts, each proven before the next; reviewing the plan as the one in charge; human in the loop as a guardrail; and code quality, drilling down into one part of it, Ruff's Pylint rules
-- [References](#references)
-
-## The application
-
-UnderCover Travel Insurance is a fictional travel insurer whose three claims handlers work through a queue of claims by hand. The pilot gives them the UnderCover Agent and a dashboard.
-
-- **The agent works each claim.** It reads the customer's story and documents, their policy and claim history, and the policy wording. Then it approves, declines or refers the claim and works out the payout. It explains its decision in two or three sentences, giving the section of the policy that applies.
-- **The dashboard shows the team its work.** It has the queue and where each claim stands, each claim in full with the agent's decision, the agent's steps as it works, and its instructions.
-- **A handler signs off big payouts.** A payout over $1,000 waits for a handler's sign-off before it is paid.
-
-It is built with FastAPI and SQLite, LangChain's `create_agent` on OpenRouter, and React with Vite and TypeScript.
-
-![The claims queue in dark mode with color-blind mode on, showing the Decision and Payout columns](queue-dark-color-blind.png)
-
-*The claims queue with all three of my additions: dark mode (Phase 7), color-blind mode with a check on each Approved decision (Phase 8), and the Decision and Payout columns (Phase 9).*
+- [What was built](#what-was-built)
+- [The commit path](#the-commit-path)
+- [My takeaways: KO the Code Slop](#my-takeaways)
+- [Appendix: the diagrams](#appendix-the-diagrams)
 
 ## What was built
 
-Claude Code planned the pilot from `docs/SPEC.md` into `docs/PLAN.md`, then built it phase by phase. Each phase was built with tests, checked against its success criteria, and committed through the pre-commit hook.
+UnderCover Travel Insurance is a fictional travel insurer. Its three claims handlers work through a queue of 25 claims by hand. The pilot gives them the UnderCover Agent, which decides claims, and a dashboard to see its work.
 
-- **Phases 1 to 6, the pilot.**
-  - A FastAPI and SQLite backend whose `pay_claim` refuses a payout over $1,000 until a handler signs off, however the agent behaves.
-  - The UnderCover Agent, using `create_agent` with one tool per API call. It takes its instructions from the API and posts each step to the backend.
-  - The dashboard: the queue, each claim in full, the agent's steps as it works, sign-off and the instructions page.
-  - Playwright tests that run on their own backend and database.
-  - Real runs on four claims, including one over $1,000 that was signed off in the dashboard.
-- **Phases 7 and up, my additions.** Each one went into the customer's documents first (`docs/SPEC.md` or a new `docs/ACCESSIBILITY.md`), then became a phase in `docs/PLAN.md` with success criteria, then was built and checked.
-  - **Phase 7, a light and dark switch.** The mode is one attribute on `<html>`, set before the page draws, so the wrong mode never flashes on load. That was proven by reading the attribute before the app ran.
-  - **Phase 8, a color-blind mode.** First the brand colors were simulated under protanopia, deuteranopia and tritanopia (Machado et al., 2009), and the color differences measured. An Okabe-Ito mapping was then chosen and documented. For protanopia, it more than doubles the difference between Approved and Declined, from 17.2 to 37.2. The mode is off by default, so the brand is unchanged. When on, it also adds a check, a cross or an arrow to each decision.
-  - **Phase 9, Decision and Payout columns on the queue.**
+Four choices in the plan shape it:
 
-The final `npm run check` passes: pytest (44 tests, 97% coverage), vitest (31 tests, 98%) and Playwright (12 tests).
+- **The backend owns the rules.** A payout over $1,000 can't be paid until a handler signs off. `pay_claim` enforces this, not the prompt, so it holds however the agent behaves.
+- **The agent works only through the API.** Each of its six tools is one backend call, and it fetches its instructions from the API. It can't reach what the API doesn't expose, such as a customer's contact details or `data/evals/`.
+- **The agent reports each step.** Every message, tool call and tool result is posted to the backend, and the dashboard polls them while the agent works.
+- **The backend starts the agent.** "Run the agent" and "Work the queue" in the dashboard call the backend, which runs the agent in a background task.
 
-Root causes found before fixing, rather than guessed:
-- The agent guessed policy ids until its instructions said to read the claim first.
-- A handler's sign-off raced the agent's own payment, and the backend's "already paid" check kept it to one payment.
-- A Vite dev server served a half-edited file.
-- Chrome's "Auto Dark Mode for Web Contents" was repainting the dashboard, color-blind palette included. Pages cannot opt out of it.
+```mermaid
+---
+config:
+  themeCSS: ".store hr { border: 0; border-top: 2px solid #333; margin: 6px 0; }"
+---
+flowchart LR
+    classDef store fill:none,stroke:none
+
+    E1[Claims handler]
+    E2[Model on OpenRouter]
+    P1((1.0<br/>Manage<br/>Claims))
+    P2((2.0<br/>Decide<br/>Claim))
+    D1["<hr/>D1 Seed data<hr/>"]:::store
+    D2["<hr/>D2 Claims database<hr/>"]:::store
+
+    E1 -- run request, sign-off --> P1
+    P1 -- queue, claim, steps --> E1
+    D1 -- claims, policies, customers, handlers --> P1
+    P1 -- state, decision, payment, sign-off, steps --> D2
+    D2 -- claims and their state --> P1
+    P1 -- claim id, records, instructions, refusals --> P2
+    P2 -- decision, payment, steps --> P1
+    P2 -- instructions, records, tool results --> E2
+    E2 -- tool calls, messages --> P2
+```
+
+1.0 is the FastAPI and SQLite backend with its React dashboard. 2.0 is the agent, LangChain's `create_agent`. D1 is `data/`, copied into SQLite on first start; `data/evals/` and `data/security/` are never loaded.
+
+Each phase had its own success criteria (75 in all), was built with tests, and ended in one commit through the pre-commit hook. Phases 7 and 8 are my additions. Each went into the customer's documents first (`docs/SPEC.md`, then a new `docs/ACCESSIBILITY.md`), then became a phase with success criteria.
+
+| Phase | What it built | Criteria |
+|---|---|---|
+| 0. The commit guard | A Claude Code `PreToolUse` hook that blocks `--no-verify`, `git commit -n`, `LEFTHOOK=0` and `core.hooksPath`, and logs every git command it sees | 5 |
+| 1. The records and the queue | The SQLite database seeded from `data/`, the seven read operations, and the agent's instructions in `backend/instructions.md` | 13 |
+| 2. Decisions, payments, sign-off and steps | The payment rules: an approval over $1,000 waits for sign-off, and `pay_claim` refuses it with HTTP 409 until a handler signs off | 11 |
+| 3. The UnderCover Agent | `create_agent` with six tools. The backend runs it on one claim or the whole queue, and puts a claim back to waiting if a run ends without a decision | 10 |
+| 4. The dashboard: the queue and the claim | React, Vite and TypeScript in UnderCover's brand: the state counts, the eight-column queue and each claim in full. Playwright gets its own backend and database | 6 |
+| 5. The dashboard: the agent at work | "Run the agent", "Work the queue", the agent's steps as a timeline, the sign-off panel and the read-only instructions | 6 |
+| 6. End to end, and handover | The real agent run from the dashboard on CLM-1001, CLM-1013, CLM-1004 and CLM-1003, checking that a payout over $1,000 waits for sign-off. `docs/STATUS.md` and `README.md` updated | 6 |
+| 7. A light and dark slider (mine) | A "Dark mode" switch on every page. The mode is one attribute on `<html>`, set before the page draws, so the wrong mode never flashes | 8 |
+| 8. A color-blind mode (mine) | A second switch that moves the state and decision colors to the Okabe-Ito palette and adds a check, cross or arrow to each decision | 10 |
+
+At the end, the checks hold 42 pytest tests (98% coverage), 41 vitest tests (99%) and 26 Playwright tests, with Ruff, pyright, ESLint, Prettier and tsc on top.
+
+This branch is a second run of the same plan: the first build's code was removed and its criteria unticked, then Claude Code built it again.
+
+## The commit path
+
+Phase 0 comes first, so that the later commits go through the guard as well as the pre-commit checks.
+
+```mermaid
+---
+config:
+  themeCSS: ".store hr { border: 0; border-top: 2px solid #333; margin: 6px 0; }"
+---
+flowchart LR
+    classDef store fill:none,stroke:none
+
+    E1[Claude Code]
+    P1((1.0<br/>Guard<br/>Command))
+    P2((2.0<br/>Run<br/>Checks))
+    D1["<hr/>D1 guard-calls.log<hr/>"]:::store
+    D2["<hr/>D2 blocked-commits.log<hr/>"]:::store
+    D3["<hr/>D3 Git repository<hr/>"]:::store
+
+    E1 -- Bash command --> P1
+    P1 -- every git command --> D1
+    P1 -- blocked command --> D2
+    P1 -- block message --> E1
+    P1 -- allowed commit --> P2
+    P2 -- failed checks --> E1
+    P2 -- commit --> D3
+```
+
+1.0 is the guard, `.claude/hooks/guard-commit.mjs`. Claude Code runs it before every Bash command. It logs each git command, and blocks a bypass with exit code 2. 2.0 is Lefthook. It formats the staged files, then runs the checks for the part that changed: Ruff, pyright and pytest for Python, and Prettier, ESLint, tsc and vitest for TypeScript. A failed check refuses the commit, and Claude fixes it and commits again.
+
+The guard wasn't loaded until the next Claude Code session, so it saw every commit from Phase 3 on. Phases 0 to 2 went through Lefthook alone.
 
 ## My takeaways
 
-### A plan in small parts, each proven before the next
+### KO the Code Slop
 
-What made this build work was the structure of the plan. It has nine phases, each one small, focused and discoverable:
+Worried about the technical debt time bomb that code slop will detonate? You should be!
 
-- **Small and focused.** Each phase has one goal and its own success criteria (71 in all), and each became a single commit of between 146 and about 1,250 changed lines. A problem showed up in the phase that caused it, while the change was still fresh: the database-reset bug in Phase 2, the type errors in Phase 3, and the two color tests that the queue's new columns broke in Phase 9.
-- **Discoverable.** Anyone can find what was built, why, and how it was proven, without reading all the code. For the color-blind mode, the why is in `docs/ACCESSIBILITY.md`, the what and its criteria are Phase 8 of `docs/PLAN.md`, and the change is the one commit "Pilot phase 8: a color-blind mode".
-- **Divide, prove, then build on it.** This is not quite divide and conquer in the computer-science sense, where the pieces are independent. Here the agent needs the backend, and the dashboard needs both. What makes it work is that each part must pass its own success criteria before the next one starts. Without those criteria, the plan would just be a to-do list.
+Ed Donner's Udemy course, AI FDE: The Forward Deployed Engineer & Agentic AI Architect, teaches you how to defuse it.
 
-It also explains my next two takeaways. Reviewing the plan works because each phase is small enough to review, and the checks work because each phase is small enough to fix.
+How? Ed's Agentic Development Lifecycle (ADLC), an evolving discipline built on three layers:
 
-### Review the plan: I'm the boss
+- **Platform/Harness:** state, memory, skills, integrations, sub-agents, agent teams
+- **Process/Harden:** hooks, linters, CI/CD, sandboxes, gateways, tests, evals
+- **People/Humans (you):** named accountability, meaningful review, ownership end to end
 
-As Ed says, reviewing the plan is where the expertise is built. The coding agent proposes, and I decide:
+The course's UnderCover project shows the Process/Harden layer before any LLM is called. The repo ships with [Lefthook](https://github.com/evilmartians/lefthook), an open-source git hooks manager from Evil Martians. On every commit that touches code, it runs formatters, linters (Ruff, Prettier, ESLint), type checkers (pyright, tsc) and unit tests with an 80% coverage gate. No LLM involved. The human sets the guardrails first; the agent works inside them.
 
-- **The pilot's plan listed its decisions for me to review.** For example, the $1,000 rule is enforced in the backend rather than the prompt, the model never sees a customer's contact details or date of birth, and a referral counts as decided.
-- **Each of my additions went through the documents first.** It went into the customer's documents (`docs/SPEC.md`, or a new `docs/ACCESSIBILITY.md`), then became a phase in `docs/PLAN.md` with success criteria. I reviewed that before saying "implement".
-- **The design calls were mine.** For example, the color-blind mode appears only when a handler turns it on, so UnderCover's brand stays the default.
-- **Tough questions paid off.** When I asked whether any smells had really been found, the answer was re-checked against every commit, not taken from memory.
+Claude Code triggers it like anyone else: commit, fix, commit again.
 
-### Human in the loop, as a guardrail
+Can the agent skip it? Yes. As Ed points out, it could commit with a flag that bypasses the hook. Digging further, I found more ways: `LEFTHOOK=0`, changing `core.hooksPath`, deleting the hook, or editing `lefthook.yml` to drop a job.
 
-Most of the guardrails in this build are automated. They guard two things: the quality of the code, and whether the app achieves its goals as the spec sets them out.
+So, three rounds of defence:
 
-| Guardrail | What it guards | When it runs |
+- **Round 1, the instruction:** the project's `PROCESS.md` tells Claude never to use `--no-verify`.
+- **Round 2, the guard:** I added a Claude Code PreToolUse hook that checks every command before it runs and blocks bypasses. It logs every git command it checks, so I can see it working. It fired even in auto permission mode. A guard on the guard, at about 10 to 20 ms per command.
+- **Round 3, CI:** Ed adds generic CI in a later session. My takeaway: have it call the same checks the hook runs, on a server where nothing on the local machine can skip them.
+
+None is perfect alone. Claude could hide a commit inside a script the hook can't read, or edit the hook if bypassPermissions mode is on. CI only holds with branch protection and a human reviewing changes to the workflow.
+
+In my UnderCover run, the guard checked 16 git commands and passed 7 commits. It blocked twice: once on a deliberate `--no-verify` test, once on a false alarm, a plan edit that merely mentioned the flag. No real bypass attempts, and Lefthook refused none of the commits.
+
+The agents write the code. You own what ships.
+
+What guardrails do you put around your coding agents?
+
+## Appendix: the diagrams
+
+### The /dfd-mermaid skill
+
+Both diagrams were drawn by Claude Code with `/dfd-mermaid`, a Claude Code skill in my skills folder (`~/.claude/skills/dfd-mermaid/SKILL.md`). A skill is a file of instructions that Claude Code loads when a task matches its description, or when it is typed as a slash command. This one has Claude draw data flow diagrams (DFDs) in the Yourdon/DeMarco notation, always with the same Mermaid pattern, so every diagram looks the same and follows the notation's rules. The skill fixes the shapes and the rules. What goes in each diagram came from `docs/PLAN.md` and the code.
+
+A DFD shows what data moves where, not the order things happen in. It has four kinds of element:
+
+| Shape | Element | Meaning |
 |---|---|---|
-| Ruff, ESLint and Prettier | Code quality: smells, likely bugs and style | Before every commit, in the hook |
-| pyright and tsc | Code quality: types | Before every commit, in the hook |
-| pytest and vitest, with 80% coverage | The goals, piece by piece. For example, `pay_claim` refuses a payout over $1,000 until a handler signs off | Before every commit, in the hook |
-| Playwright end-to-end tests | The goals, for the whole app. For example, a handler's sign-off in the dashboard releases a held payment | In `npm run check`, before handing over |
-| Each phase's success criteria | That each phase delivers what the plan promised | Claude checks each one before ticking it |
+| Rectangle | External entity | A person or system outside the part being drawn, which sends or receives data |
+| Circle, numbered 1.0, 2.0 | Process | Something that takes data in and sends data out |
+| Two parallel lines | Data store | Data at rest |
+| Labeled arrow | Data flow | The data that moves, named on the arrow |
 
-These can only enforce what can be written down as a rule. A human in the loop covers what they can't: judgment, taste and accountability. In this build there is a human in the loop at two levels, the product and the build. At both, an automated rule and a person work together.
+The skill holds Claude to the notation's rules:
 
-- **In the product, a handler signs off big payouts.** The agent can approve any claim, but a payout over $1,000 waits for a handler. The backend's `pay_claim` refuses the payment until a handler signs off, however the agent behaves, so the model cannot skip the human. In a real run, the agent approved CLM-1003 for $3,750.00 and tried to pay it. The backend refused, and the payment went out only after a handler, Dana Whitfield, signed off in the dashboard. When the agent tried to pay again, the backend refused it as "already paid", so exactly one payment was made.
-- **The agent hands judgment calls to people.** Its instructions say to refer a claim when it needs a handler's judgment or more information. Across the 25 claims in my queue, it referred 6 to a handler, and 3 approvals over $1,000 are still waiting for sign-off.
-- **People can see what the agent did.** The claim page shows every step the agent took, and its instructions are visible, read only. A handler can check the agent's reasoning before signing off.
-- **In the build, I was the human in the loop.** The automated checks and each phase's success criteria caught what could be specified. I decided what couldn't be: the plan before "implement", the planned phase for each of my additions, and design calls such as keeping the brand as the default. Claude Code never pushed anything, and changes outside the plan came to me first, as questions or plans to approve.
+- Every arrow is labeled with the data it carries.
+- Data moves only through a process: never from entity to entity, entity to store, or store to store.
+- A diagram with three or more processes is split into one diagram per process, with an index. Both diagrams here have two processes, so each stays whole.
+- Diagrams run left to right unless a vertical one is asked for.
 
-The pattern is the same at both levels. The agent proposes, automated rules hold the hard limits, and a person makes the judgment calls and is accountable for them.
+Mermaid has no parallel-line shape, so the skill draws a store as a borderless box between two horizontal lines. The skill targets VS Code's Markdown Preview Enhanced; other viewers may draw those lines differently.
 
-### Code quality
+### Diagram 1: the pilot
 
-One of my takeaways is code quality. Many things in this project contribute to it:
+| Element | Kind | In the build |
+|---|---|---|
+| Claims handler | External entity | One of UnderCover's three handlers, using the dashboard |
+| Model on OpenRouter | External entity | The LLM the agent calls |
+| 1.0 Manage Claims | Process | The FastAPI backend and the React dashboard. It serves the queue and the claims, enforces the payment rules and starts the agent |
+| 2.0 Decide Claim | Process | The UnderCover Agent, `create_agent` with six tools |
+| D1 Seed data | Data store | `data/`, copied into SQLite on first start |
+| D2 Claims database | Data store | `undercover.db`: the claims, decisions, payments, sign-offs and steps |
 
-- The structure of the plan. Every change went from a requirement in the docs, to a phase with checkable success criteria, to the build, the checks and a commit.
-- The code standards in `docs/CODE_STANDARDS.md`.
-- Type checking with pyright and tsc in strict mode.
-- Unit tests with an 80% coverage threshold, and end-to-end tests in the browser.
-- A pre-commit hook that runs the checks on every commit.
-- The linters.
+What it shows:
 
-With this many moving parts, it is easy to skim them all and learn little about any one. So the rest of this write-up drills down into just one of them: Ruff's Pylint rules. I look at what they check, how Claude Code runs them, and what happened in this build. The other parts are for another time. Ruff's Pylint rules come from one line in `docs/PROCESS.md`:
+- 2.0 has no arrow to D2. The agent never writes to the database itself; every decision and payment goes through 1.0, where the rules are.
+- "Refusals" flow from 1.0 back to 2.0. When the agent tries to pay over $1,000 without a sign-off, the backend refuses, and the agent sees why.
+- The model sees only what 2.0 sends it: the instructions, the records it fetched and the tool results.
 
-> Python: ruff (lint and format), pyright, and pytest with 80% coverage
+To keep two processes, 1.0 combines the backend and the dashboard. Drawing them apart would make three processes, and the skill would split the diagram into three.
 
-Ruff includes many of Pylint's rules, including its refactor checks (the `R` messages). These flag code smells of the kind catalogued in Martin Fowler's *Refactoring: Improving the Design of Existing Code*. The `"PL"` in `pyproject.toml` turns them on:
+### Diagram 2: the commit path
 
-```toml
-[tool.ruff.lint]
-select = ["E", "F", "W", "I", "B", "SIM", "UP", "PL", "S", "PT", "FAST", "C90", "PLR1702"]
-```
+| Element | Kind | In the build |
+|---|---|---|
+| Claude Code | External entity | The coding agent, running Bash commands |
+| 1.0 Guard Command | Process | The `PreToolUse` hook, `.claude/hooks/guard-commit.mjs` (Round 2 in my takeaways) |
+| 2.0 Run Checks | Process | Lefthook's pre-commit hook |
+| D1 guard-calls.log | Data store | `~/.claude/guard-calls.log`: every git command, with `blocked` true or false |
+| D2 blocked-commits.log | Data store | `~/.claude/blocked-commits.log`: blocked commands only |
+| D3 Git repository | Data store | The repo's commit history |
 
-### How Claude Code runs these checks, and how often
+What it shows:
 
-That line in `docs/PROCESS.md` describes the checks rather than running them. They are run by `npm run check:python` in `package.json`:
-
-```
-uv run ruff format --check && uv run ruff check && pyright && uv run pytest -q
-```
-
-Each step runs only if the one before it passed. pytest takes its coverage settings from `pyproject.toml`: `--cov`, with `fail_under = 80`.
-
-Claude Code comes to them in four ways:
-
-1. **It reads the rule.** `AGENTS.md` is loaded into every Claude Code session automatically. It says to read the docs in full, `PROCESS.md` among them, before planning or building.
-2. **It runs the checks itself while building.** `PROCESS.md` says to build each phase with tests and to check every success criterion. So Claude runs `npm run check:python` after each change, and again after each fix.
-3. **The pre-commit hook runs them on every commit.** `PROCESS.md` says to commit after each phase. On any commit that stages a Python file under `backend/` or `agent/`, `lefthook.yml` formats the staged files with Ruff, then runs `npm run check:python`. If a step fails, the commit is refused. `PROCESS.md` says to fix the problem and commit again, and never to use `--no-verify`. The TypeScript files get the same treatment in parallel, with Prettier, ESLint, tsc and vitest. the hook came with the course's starter repo
-4. **It runs everything at the end.** After the last phase, and before handing work over, Claude runs `npm run check`: the Python checks, then the TypeScript checks, then Playwright.
-
-How often, in this build: 5 of the 18 commits on my branch changed Python files, so the hook ran the Python checks on them (Phases 1, 2, 3, 5 and 9). Claude's own runs during each phase came first, so every one of those hook runs passed the first time. Those earlier runs caught three problems:
-
-- **pytest:** in Phase 2, resetting the database tried to drop SQLite's internal `sqlite_sequence` table.
-- **pyright:** in Phase 3, three type errors in the agent, from how LangChain types its messages and stream chunks.
-- **ruff:** in Phase 5, a line too long in `agent/main.py`, fixed by extracting a `describe()` function.
-
-### What happens when a smell is detected
-
-Ruff reports a smell, but it does not fix it:
-
-1. `ruff check` lists each smell with its line, its rule and a message, then exits with code 1. It changes no code.
-2. The chain stops. `pyright` and `pytest` do not run, and `npm run check:python` fails.
-3. When Claude is running the checks while building, it reads the report, refactors the code and runs the checks again until they pass. For example, it might introduce a parameter object, extract a function, name a magic value as a constant, or turn `else: if` into `elif`.
-4. When the hook runs them at commit time, the commit is refused and nothing is committed. Claude fixes the problem and commits again, and never uses `git commit --no-verify`.
-5. Silencing a smell is not allowed. `docs/PROCESS.md` says: "Never lower a threshold, turn off a rule or exclude a file to get a green run. If a rule looks wrong, stop and ask."
-
-Nothing is fixed automatically. Some rules, such as `PLR5501`, are marked as fixable with `ruff check --fix`, but neither the checks nor the hook pass `--fix`. The hook only reformats code, with `ruff format`. So every smell gets a deliberate refactoring.
-
-### Were any smells found in this build?
-
-No Pylint smell was found from the start of implementing `docs/PLAN.md`:
-
-- **While building:** the only lint finding in Claude's runs was the line-length error above. It comes from Ruff's `E501` rule, not a Pylint rule.
-- **In every commit:** I re-checked the Python code at each of the five commits that changed it. Each passes the project's rules. With every Pylint and complexity rule switched on, including the preview rules this project leaves off, the app code still has no findings.
-- **The check does work:** the same command finds the smells in the example below. In the test code, it finds 33 magic values, which the project allows in tests on purpose.
-
-Two caveats:
-
-- "No findings" means no smells that these rules can detect, not that the code has none.
-- Claude wrote the code knowing these limits, so it stayed under them by design.
-
-One rule was silenced. Three SQL queries in `backend/db.py` and `backend/records.py` carry an inline `# noqa: S608`. That is a security rule against building SQL with f-strings. It is a false positive there, since the table names come from fixed lists in the code, not from user input. By a strict reading of `PROCESS.md`, Claude should have asked before adding it.
-
-### Example smells the refactor checks catch
-
-| Rule | What it flags (limit in this project) | Fowler's smell | Refactoring that fixes it |
-|---|---|---|---|
-| `PLR0913`, `PLR0917` | Too many arguments or positional arguments (5) | Long Parameter List | Introduce Parameter Object |
-| `PLR1702` | Too many nested blocks (5) | Long Function, deep nesting | Replace Nested Conditional with Guard Clauses |
-| `PLR0912`, `PLR0915` | Too many branches (12) or statements (50) | Long Function | Extract Function, Decompose Conditional |
-| `PLR2004` | A magic value in a comparison | Magic numbers | Replace Magic Literal |
-| `PLR5501` | `else` then `if` instead of `elif` | Needless nesting | Flatten to `elif` (no named refactoring) |
-| `SIM102` (flake8-simplify, also selected) | Nested `if`s that could be one `if` | Needless nesting | Consolidate Conditional Expression |
-
-This deliberately smelly function, checked with this project's settings:
-
-```python
-def settle(claim, policy, plan, payments, handler, notes):
-    """Work out what to pay on a claim."""
-    total = 0
-    for item in claim["items"]:
-        if item["amount"] > 0:
-            if item["category"] == "baggage":
-                for payment in payments:
-                    if payment["item"] == item["description"]:
-                        if payment["amount"] > 0:
-                            total -= payment["amount"]
-    if claim["type"] == "baggage" or claim["type"] == "passport":
-        total -= 100
-    if total > 1000:
-        return "sign-off"
-    else:
-        if total == 0:
-            return "decline"
-    return None
-```
-
-```
-line 1:  PLR0913 Too many arguments in function definition (6 > 5)
-line 1:  PLR0917 Too many positional arguments (6 > 5)
-line 4:  PLR1702 Too many nested blocks (6 > 5)
-line 5:  SIM102  Use a single `if` statement instead of nested `if` statements
-line 8:  SIM102  Use a single `if` statement instead of nested `if` statements
-line 13: PLR2004 Magic value used in comparison, consider replacing `1000` with a constant variable
-line 15: PLR5501 Use `elif` instead of `else` then `if`, to reduce indentation
-```
-
-In the build itself:
-- The $1,000 limit lives in `data/company.json` and is read into a `LIMIT` constant in `backend/decisions.py`, so the code has no magic `1000`. Tests are exempt from `PLR2004`, since they compare against literal values on purpose.
-- A Ruff line-length error in `agent/main.py` led to a small Extract Function, `describe()`.
-- The dashboard gets the same treatment from ESLint: `complexity` (15), `max-depth` (4), `max-params` (5) and the SonarJS rules. SonarJS made every component's props read-only in Phase 4.
-
-## References
-
-- Ruff's rules, with the Pylint (`PL`) section: https://docs.astral.sh/ruff/rules/
-- The rules above: [too-many-arguments](https://docs.astral.sh/ruff/rules/too-many-arguments/), [too-many-positional-arguments](https://docs.astral.sh/ruff/rules/too-many-positional-arguments/), [too-many-nested-blocks](https://docs.astral.sh/ruff/rules/too-many-nested-blocks/), [too-many-branches](https://docs.astral.sh/ruff/rules/too-many-branches/), [too-many-statements](https://docs.astral.sh/ruff/rules/too-many-statements/), [magic-value-comparison](https://docs.astral.sh/ruff/rules/magic-value-comparison/), [collapsible-else-if](https://docs.astral.sh/ruff/rules/collapsible-else-if/), [collapsible-if](https://docs.astral.sh/ruff/rules/collapsible-if/)
-- Ruff's settings, including the Pylint limits, and its preview rules: https://docs.astral.sh/ruff/settings/, https://docs.astral.sh/ruff/preview/
-- Pylint's checkers, including the refactoring checker: https://pylint.readthedocs.io/en/stable/user_guide/checkers/features.html
-- Martin Fowler, *Refactoring: Improving the Design of Existing Code*, 2nd edition: https://martinfowler.com/books/refactoring.html
-- Martin Fowler on code smells: https://martinfowler.com/bliki/CodeSmell.html
-- The catalog of refactorings: https://refactoring.com/catalog/, including [Introduce Parameter Object](https://refactoring.com/catalog/introduceParameterObject.html), [Extract Function](https://refactoring.com/catalog/extractFunction.html), [Decompose Conditional](https://refactoring.com/catalog/decomposeConditional.html), [Replace Nested Conditional with Guard Clauses](https://refactoring.com/catalog/replaceNestedConditionalWithGuardClauses.html), [Consolidate Conditional Expression](https://refactoring.com/catalog/consolidateConditionalExpression.html) and [Replace Magic Literal](https://refactoring.com/catalog/replaceMagicLiteral.html)
+- A commit reaches D3 only through both processes: the guard, then the checks.
+- Claude gets two kinds of refusal: the guard's block message, and the failed checks.
+- The "allowed commit" arrow is a simplification. The guard doesn't pass the commit on; it exits without blocking, Claude Code runs the command, and git calls Lefthook.
+- The diagram shows the path as designed. The bypasses in my takeaways are ways around it, which is why Round 3, CI, runs on a server outside this diagram.
