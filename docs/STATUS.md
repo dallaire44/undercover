@@ -44,7 +44,7 @@ The UnderCover claims pilot, built from `docs/PLAN.md`, and the agent's harness,
 
 ## Last live run
 
-After a reseed, a run capped at five claims on `deepseek/deepseek-v4.1-flash` worked CLM-1001, CLM-1008, CLM-1010, CLM-1011 and CLM-1018 in about two minutes: three approved (CLM-1001 paid $420.00; CLM-1008 $2,240.00 and CLM-1011 $1,150.00 waiting for sign-off), one declined and one referred, with no failures. The other 20 claims stayed waiting. Each claim agent read 9 to 11 of the 26 sections.
+After the agent was rebuilt as `api`, `tools` and `harness` with goal-based instructions, and a reseed, a run capped at five claims on `deepseek/deepseek-v4.1-flash` worked CLM-1001, CLM-1008, CLM-1010, CLM-1011 and CLM-1018 in about two minutes, with the same decisions as before the rebuild: three approved (CLM-1001 paid $420.00; CLM-1008 $2,240.00 and CLM-1011 $1,150.00 waiting for sign-off, each after its payment came back refused as text), CLM-1010 declined and CLM-1018 referred, with no failures. The other 20 claims stayed waiting. Each claim agent read 8 to 12 of the 26 sections. A first run marked the referral "left for a handler" on the to-do list; `queue.md` now says that status is only for a claim that failed twice, and the second run marked it done.
 
 ## Commit guard
 

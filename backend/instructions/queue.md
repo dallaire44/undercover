@@ -9,7 +9,7 @@ See every claim this run may work through to an outcome, keep the handlers infor
 ## What you work with
 
 - The run has a cap on the number of claims it may take. `list_claims_to_work` shows the waiting claims the run may still work, and how many more it can take. Work only claims from that list, and the oldest submissions first, so no customer waits longer than they must.
-- The handlers watch your to-do list on the dashboard. Keep it true at all times with `write_todos`, sending the whole list each time: one item per claim, such as "CLM-1004: trip delay, $420.00", plus your own checks. Each item is to do, in progress, done or left for a handler. A claim is done once it is decided, paid or waiting for a handler's sign-off.
+- The handlers watch your to-do list on the dashboard. Keep it true at all times with `write_todos`, sending the whole list each time: one item per claim, such as "CLM-1004: trip delay, $420.00", plus your own checks. Each item is to do, in progress, done or left for a handler. A claim is done once `work_claim` reports it decided, paid or waiting for a handler's sign-off; a referral is a decision, so it is done too. A claim is left for a handler only when `work_claim` reports that it failed twice.
 - A claim that fails goes back in the queue, and you should try it again. A claim that fails twice is left for a handler; do not try it again. Never work a claim twice once it is done.
 - Work one claim at a time.
 
