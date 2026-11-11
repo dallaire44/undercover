@@ -210,10 +210,10 @@ Success criteria:
 
 Success criteria:
 
-- [ ] During the live run, the queue page shows the to-do list being written, then items moving from To do to In progress to Done (or Left for a handler), then the summary.
-- [ ] After it, exactly five claims have left `waiting`, each decided, waiting for sign-off or needing a handler, and the other 20 are still `waiting`. `GET /api/runs/latest` shows `finished`.
-- [ ] Each of the five claim pages shows its steps on one thread per attempt, and a "Sections read" list with at least one section.
-- [ ] No claim is left `in_progress`, and no payment over $1,000 was made without a sign-off.
-- [ ] `docs/SPEC.md`, `docs/TECH_STACK.md` and `docs/STATUS.md` describe the product as built.
-- [ ] `npm run check` is green: ruff, pyright, pytest at or above 80% coverage, Prettier, ESLint, tsc, vitest at or above 80% coverage and Playwright.
-- [ ] The phase is committed, and the live run's results are reported to you.
+- [x] During the live run, the queue page shows the to-do list being written, then items moving from To do to In progress to Done (or Left for a handler), then the summary.
+- [x] After it, exactly five claims have left `waiting`, each decided, waiting for sign-off or needing a handler, and the other 20 are still `waiting`. `GET /api/runs/latest` shows `finished`.
+- [x] Each of the five claim pages shows its steps on one thread per attempt, and a "Sections read" list with at least one section.
+- [x] No claim is left `in_progress`, and no payment over $1,000 was made without a sign-off.
+- [x] `docs/SPEC.md`, `docs/TECH_STACK.md` and `docs/STATUS.md` describe the product as built.
+- [x] `npm run check` is green: ruff, pyright, pytest at or above 80% coverage, Prettier, ESLint, tsc, vitest at or above 80% coverage and Playwright.
+- [x] The phase is committed, and the live run's results are reported to you.

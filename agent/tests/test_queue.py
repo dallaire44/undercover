@@ -159,7 +159,7 @@ def test_the_to_do_list_and_the_claims_to_work(client, start):
         "The run's cap is 2 claims. It has taken 0, so it can take 2"
     )
     assert len(listed) == 25
-    assert listed[0].startswith("CLM-1001: ")
+    assert listed[0].startswith("CLM-1001: trip delay, $420.00, submitted 2026-06-24")
     assert "0 earlier attempts" in listed[0]
     assert run_of(client, run_id)["todos"] == todos
 

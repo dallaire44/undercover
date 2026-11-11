@@ -71,7 +71,7 @@ def work_claim(run_id: str, claim_id: str) -> str:
 def line(found: dict) -> str:
     """Describe a claim to work in one line."""
     return (
-        f"{found['claim_id']}: {found['claim_type']}, "
+        f"{found['claim_id']}: {found['claim_type'].replace('_', ' ')}, "
         f"${found['amount_claimed']:,.2f}, submitted {found['submitted_on']}, "
         f"{found['attempts']} earlier attempts. {found['summary']}"
     )
