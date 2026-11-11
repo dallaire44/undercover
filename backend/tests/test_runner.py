@@ -1,72 +1,67 @@
-import pytest
-
 from backend import runner
 from backend.tests.conftest import decide, status
 
 
-def step_texts(client, claim_id):
-    return [s["text"] for s in client.get(f"/api/claims/{claim_id}/steps").json()]
+def start(client, cap=2):
+    return client.post("/api/runs", json={"cap": cap})
 
 
-@pytest.fixture
-def deciding_agent(client, monkeypatch):
-    """An agent that declines whatever claim it is given."""
-
-    def run(claim_id, thread_id):
-        decide(client, claim_id, "decline", 0.0)
-        return "Declined."
-
-    monkeypatch.setattr(runner, "run_agent", run)
+def run_of(client, run_id):
+    return client.get(f"/api/runs/{run_id}").json()
 
 
-def test_start_agent(client, deciding_agent):
+def test_a_run_with_the_agent_off_waits(client, monkeypatch):
+    monkeypatch.setenv("UNDERCOVER_AGENT", "off")
+    response = start(client)
+    assert response.status_code == 202
+    run = response.json()
+    assert run["run_id"] == "RUN-0001"
+    assert run["cap"] == 2
+    assert run["status"] == "running"
+    assert client.get("/api/runs/latest").json()["run_id"] == "RUN-0001"
+
+
+def test_a_failing_queue_agent_returns_its_claims(client, monkeypatch):
+    def run_queue(run_id):
+        client.post(f"/api/runs/{run_id}/claims/CLM-1001")
+        raise RuntimeError("provider unavailable")
+
+    monkeypatch.setattr(runner.queue, "run_queue", run_queue)
+    run = run_of(client, start(client).json()["run_id"])
+    assert run["status"] == "stopped"
+    assert run["summary"] == "The agent failed: provider unavailable"
+    assert status(client, "CLM-1001") == "waiting"
+
+
+def test_a_finished_run_is_left_alone(client, monkeypatch):
+    def run_queue(run_id):
+        client.post(f"/api/runs/{run_id}/claims/CLM-1001")
+        decide(client, "CLM-1001", "decline", 0.0)
+        client.post(f"/api/runs/{run_id}/finish", json={"summary": "One declined."})
+
+    monkeypatch.setattr(runner.queue, "run_queue", run_queue)
+    run = run_of(client, start(client, 1).json()["run_id"])
+    assert run["status"] == "finished"
+    assert run["summary"] == "One declined."
+
+
+def test_one_claim(client, monkeypatch):
+    def work_claim(run_id, claim_id):
+        client.post(f"/api/runs/{run_id}/claims/{claim_id}")
+        decide(client, claim_id, "refer", 0.0)
+        return f"{claim_id}: referred"
+
+    monkeypatch.setattr(runner.queue, "work_claim", work_claim)
     response = client.post("/api/claims/CLM-1001/agent")
     assert response.status_code == 202
-    assert status(client, "CLM-1001") == "decided"
-    texts = step_texts(client, "CLM-1001")
-    assert texts[0] == "Agent started"
-    assert texts[-1] == "Agent finished"
+    run = run_of(client, response.json()["run_id"])
+    assert run["summary"] == "CLM-1001: referred"
+    assert run["claim_ids"] == ["CLM-1001"]
 
 
-def test_start_agent_is_in_progress_while_running(client, monkeypatch):
-    seen = []
-
-    def run(claim_id, thread_id):
-        seen.append(status(client, claim_id))
-        decide(client, claim_id, "refer", 0.0)
-
-    monkeypatch.setattr(runner, "run_agent", run)
-    client.post("/api/claims/CLM-1001/agent")
-    assert seen == ["in_progress"]
-
-
-def test_start_agent_needs_a_waiting_claim(client, deciding_agent):
-    client.post("/api/claims/CLM-1001/agent")
+def test_one_claim_must_be_waiting(client, monkeypatch):
+    monkeypatch.setenv("UNDERCOVER_AGENT", "off")
+    decide(client, "CLM-1001", "decline", 0.0)
     assert client.post("/api/claims/CLM-1001/agent").status_code == 409
     assert client.post("/api/claims/CLM-9999/agent").status_code == 404
-
-
-def test_run_without_a_decision_goes_back_to_waiting(client, monkeypatch):
-    monkeypatch.setattr(runner, "run_agent", lambda claim_id, thread_id: "Hmm.")
-    client.post("/api/claims/CLM-1001/agent")
-    assert status(client, "CLM-1001") == "waiting"
-    assert "without a decision" in step_texts(client, "CLM-1001")[-1]
-
-
-def test_failed_run_goes_back_to_waiting(client, monkeypatch):
-    def run(claim_id, thread_id):
-        raise RuntimeError("model unavailable")
-
-    monkeypatch.setattr(runner, "run_agent", run)
-    client.post("/api/claims/CLM-1001/agent")
-    assert status(client, "CLM-1001") == "waiting"
-    assert "model unavailable" in step_texts(client, "CLM-1001")[-1]
-
-
-def test_work_queue(client, deciding_agent):
-    client.post("/api/claims/CLM-1001/agent")
-    response = client.post("/api/queue/agent")
-    assert response.status_code == 202
-    assert len(response.json()) == 24
-    claims = client.get("/api/claims").json()
-    assert {c["status"] for c in claims} == {"decided"}
+    assert client.get("/api/runs/latest").json() is None

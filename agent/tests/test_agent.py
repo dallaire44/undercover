@@ -122,3 +122,8 @@ def test_model_name(monkeypatch):
     assert default.reasoning_effort == "low"
     monkeypatch.setenv("MODEL_NAME", "openrouter/free")
     assert model.model().model_name == "openrouter/free"
+
+
+def test_blank_messages_are_not_steps():
+    message = AIMessage(content="\n\n", tool_calls=[])
+    assert claim.steps_of(message) == []

@@ -20,9 +20,8 @@ def steps_of(message: BaseMessage) -> list[tuple[str, str]]:
         return [(kind, str(message.text))]
     if not isinstance(message, AIMessage):
         return []
-    found: list[tuple[str, str]] = (
-        [("message", str(message.text))] if message.text else []
-    )
+    text = str(message.text).strip()
+    found: list[tuple[str, str]] = [("message", text)] if text else []
     for call in message.tool_calls:
         found.append(("tool_call", f"{call['name']}({json.dumps(call['args'])})"))
     return found

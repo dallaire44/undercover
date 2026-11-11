@@ -1,9 +1,8 @@
-"""Run the agent on one claim: `uv run -m agent CLM-1001`."""
+"""Run the agent: `uv run -m agent 5` for up to five claims, or `CLM-1001` for one."""
 
 import sys
-import uuid
 
-from agent.claim import run
+from agent import cli
 
 if __name__ == "__main__":
-    print(run(sys.argv[1], str(uuid.uuid4())))
+    print(cli.follow(cli.start(sys.argv[1])))

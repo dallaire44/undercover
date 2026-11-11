@@ -23,6 +23,7 @@ from backend.models import (
     Policy,
     ReturnRequest,
     Run,
+    RunRequest,
     SignOff,
     SignOffRequest,
     Step,
@@ -112,7 +113,7 @@ def read_section(document: str, number: str) -> str:
     operation_id="get_instructions",
     response_class=PlainTextResponse,
 )
-def get_instructions(agent: Literal["claim"]) -> str:
+def get_instructions(agent: Literal["queue", "claim"]) -> str:
     """Get an agent's instructions as Markdown."""
     return (HERE / "instructions" / f"{agent}.md").read_text(encoding="utf-8")
 
@@ -213,18 +214,17 @@ def finish_run(
     return runs.finish(conn, run_id, request.summary)
 
 
+@app.post("/api/runs", operation_id="start_run", status_code=202)
+def start_run(
+    request: RunRequest, tasks: BackgroundTasks, conn: sqlite3.Connection = Db
+) -> Run:
+    """Start a run of the agent on the queue, capped at a number of claims."""
+    return runner.start_run(conn, request.cap, tasks)
+
+
 @app.post("/api/claims/{claim_id}/agent", operation_id="start_agent", status_code=202)
 def start_agent(
     claim_id: str, tasks: BackgroundTasks, conn: sqlite3.Connection = Db
-) -> None:
-    """Run the agent on a waiting claim."""
-    runner.start(conn, claim_id)
-    tasks.add_task(runner.run_claim, claim_id)
-
-
-@app.post("/api/queue/agent", operation_id="work_queue", status_code=202)
-def work_queue(tasks: BackgroundTasks, conn: sqlite3.Connection = Db) -> list[str]:
-    """Run the agent on every waiting claim, one after another."""
-    claim_ids = runner.waiting_ids(conn)
-    tasks.add_task(runner.run_queue, claim_ids)
-    return claim_ids
+) -> Run:
+    """Start a run of the agent on one waiting claim."""
+    return runner.start_one(conn, claim_id, tasks)

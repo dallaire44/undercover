@@ -1,65 +1,53 @@
-"""Run the agent on claims, in the background."""
+"""Start the agent on a run in the background, and stop the run if the agent fails."""
 
+import os
 import sqlite3
-import uuid
 from contextlib import closing
 
-from agent.claim import run as run_agent
-from backend import db, records, rules, steps
-from backend.models import StepRequest
+from fastapi import BackgroundTasks
+
+from agent import queue
+from backend import db, records, rules, runs
+from backend.models import Run
 
 
-def note(conn: sqlite3.Connection, claim_id: str, thread_id: str, text: str) -> None:
-    """Record a step written by the system, not by the agent."""
-    steps.add_step(
-        conn, claim_id, StepRequest(thread_id=thread_id, kind="message", text=text)
-    )
+def agent_on() -> bool:
+    """Say whether runs start the agent. The e2e backend sets UNDERCOVER_AGENT=off."""
+    return os.getenv("UNDERCOVER_AGENT") != "off"
 
 
-def start(conn: sqlite3.Connection, claim_id: str) -> None:
-    """Move a waiting claim to in progress, or refuse."""
+def start_run(conn: sqlite3.Connection, cap: int, tasks: BackgroundTasks) -> Run:
+    """Start a run capped at `cap` claims, worked by the queue agent."""
+    run = runs.start(conn, cap)
+    if agent_on():
+        tasks.add_task(run_queue, run.run_id)
+    return run
+
+
+def start_one(conn: sqlite3.Connection, claim_id: str, tasks: BackgroundTasks) -> Run:
+    """Start a run on one waiting claim, worked by a claim agent alone."""
     if records.status(conn, claim_id) != "waiting":
         raise rules.conflict(f"{claim_id} is not waiting")
-    with conn:
-        rules.set_status(conn, claim_id, "in_progress")
+    run = runs.start(conn, 1)
+    if agent_on():
+        tasks.add_task(run_one, run.run_id, claim_id)
+    return run
 
 
-def waiting_ids(conn: sqlite3.Connection) -> list[str]:
-    """Return the ids of the claims waiting in the queue."""
-    rows = conn.execute(
-        "SELECT claim_id FROM claims WHERE status = 'waiting' ORDER BY claim_id"
-    )
-    return [row["claim_id"] for row in rows]
-
-
-def run_claim(claim_id: str) -> None:
-    """Run the agent on a claim that is in progress. Without a decision, put it back."""
-    thread_id = str(uuid.uuid4())
+def run_queue(run_id: str) -> None:
+    """Run the queue agent. If it fails or never finishes, stop the run."""
+    reason = "The agent ended without finishing the run."
+    try:
+        queue.run_queue(run_id)
+    except Exception as error:  # noqa: BLE001
+        reason = f"The agent failed: {error}"
     with closing(db.connect()) as conn:
-        note(conn, claim_id, thread_id, "Agent started")
-        problem = None
-        try:
-            run_agent(claim_id, thread_id)
-        except Exception as error:  # noqa: BLE001
-            problem = f"The agent failed: {error}"
-        if problem is None and records.one(conn, "decisions", claim_id):
-            note(conn, claim_id, thread_id, "Agent finished")
-            return
-        note(
-            conn,
-            claim_id,
-            thread_id,
-            problem or "The agent finished without a decision",
-        )
-        with conn:
-            rules.set_status(conn, claim_id, "waiting")
+        if runs.row(conn, run_id)["status"] == "running":
+            runs.stop(conn, run_id, reason)
 
 
-def run_queue(claim_ids: list[str]) -> None:
-    """Run the agent on each of these claims in turn, if it is still waiting."""
-    for claim_id in claim_ids:
-        with closing(db.connect()) as conn:
-            if records.status(conn, claim_id) != "waiting":
-                continue
-            start(conn, claim_id)
-        run_claim(claim_id)
+def run_one(run_id: str, claim_id: str) -> None:
+    """Work one claim, then finish the run with its outcome."""
+    outcome = queue.work_claim(run_id, claim_id)
+    with closing(db.connect()) as conn:
+        runs.close(conn, run_id, "finished", outcome)

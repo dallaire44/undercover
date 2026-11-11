@@ -141,17 +141,17 @@ The agent that works the queue, and the code that starts it.
 
 Success criteria. Every test uses stub models, or a fake claim agent passed in:
 
-- [ ] **A failed claim does not stop the run:** a queue run of 3 claims, where the claim agent raises on the second, still works the first and third. `work_claim` answers the second with a "failed ... back in the queue" line, and the run finishes.
-- [ ] **Back in the queue and tried again:** the claim agent fails once on CLM-1002 and succeeds the second time. The queue agent calls `work_claim` on it again and it ends `decided`, with `attempts` 1.
-- [ ] **Fails twice, left for a handler:** the claim agent always fails on CLM-1002. After two attempts it is `needs_handler`, the `work_claim` line says "left for a handler", and the run still finishes.
-- [ ] **The cap on a run:** a queue run with cap 2 whose stub tries a third claim gets the refusal back as text. The other 23 claims stay `waiting`.
-- [ ] **The missed-claims check:** a stub that calls `finish_run` early gets the 409 back as text naming the missed claim. It works that claim and then finishes.
-- [ ] **Ending without finishing:** a stub that stops without `finish_run` leaves the run `stopped` and no claim `in_progress`.
-- [ ] **The queue agent fails:** a queue agent that raises leaves the run `stopped` with the error and returns its `in_progress` claim.
-- [ ] **A fresh start for each claim:** two claims worked in one run have different `thread_id`s on their steps. The claim agent's first model call holds only its instructions and "Decide claim CLM-…", nothing from the earlier claim.
-- [ ] **One named claim:** `POST /api/claims/CLM-1001/agent`, with a fake claim agent that declines, gives a finished run of cap 1 with the claim `decided`. A second start on it is 409, and a start while a run is running is 409.
-- [ ] `uv run pytest` and `pyright` pass with coverage at or above 80%.
-- [ ] The pre-commit checks pass and the phase is committed.
+- [x] **A failed claim does not stop the run:** a queue run of 3 claims, where the claim agent raises on the second, still works the first and third. `work_claim` answers the second with a "failed ... back in the queue" line, and the run finishes.
+- [x] **Back in the queue and tried again:** the claim agent fails once on CLM-1002 and succeeds the second time. The queue agent calls `work_claim` on it again and it ends `decided`, with `attempts` 1.
+- [x] **Fails twice, left for a handler:** the claim agent always fails on CLM-1002. After two attempts it is `needs_handler`, the `work_claim` line says "left for a handler", and the run still finishes.
+- [x] **The cap on a run:** a queue run with cap 2 whose stub tries a third claim gets the refusal back as text. The other 23 claims stay `waiting`.
+- [x] **The missed-claims check:** a stub that calls `finish_run` early gets the 409 back as text naming the missed claim. It works that claim and then finishes.
+- [x] **Ending without finishing:** a stub that stops without `finish_run` leaves the run `stopped` and no claim `in_progress`.
+- [x] **The queue agent fails:** a queue agent that raises leaves the run `stopped` with the error and returns its `in_progress` claim.
+- [x] **A fresh start for each claim:** two claims worked in one run have different `thread_id`s on their steps. The claim agent's first model call holds only its instructions and "Decide claim CLM-…", nothing from the earlier claim.
+- [x] **One named claim:** `POST /api/claims/CLM-1001/agent`, with a fake claim agent that declines, gives a finished run of cap 1 with the claim `decided`. A second start on it is 409, and a start while a run is running is 409.
+- [x] `uv run pytest` and `pyright` pass with coverage at or above 80%.
+- [x] The pre-commit checks pass and the phase is committed.
 
 ## Phase 4: The queue page: the run, its to-do list and "Needs a handler"
 
