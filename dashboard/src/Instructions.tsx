@@ -1,17 +1,32 @@
+import { useCallback } from "react";
 import { getInstructions } from "./api";
 import { useLoad } from "./useLoad";
 
-const getClaimInstructions = () => getInstructions("claim");
+function InstructionsPanel({
+  agent,
+  title,
+}: Readonly<{ agent: "queue" | "claim"; title: string }>) {
+  const { data: text, failed } = useLoad(
+    useCallback(() => getInstructions(agent), [agent]),
+  );
+  return (
+    <section className="panel" aria-label={title}>
+      <h2>{title}</h2>
+      {failed ? (
+        <p>The instructions could not be loaded.</p>
+      ) : (
+        <pre className="instructions">{text}</pre>
+      )}
+    </section>
+  );
+}
 
 export function Instructions() {
-  const { data: text, failed } = useLoad(getClaimInstructions);
-  if (failed) return <p>The instructions could not be loaded.</p>;
   return (
     <>
       <h1>Agent instructions</h1>
-      <section className="panel" aria-label="The agent's instructions">
-        <pre className="instructions">{text}</pre>
-      </section>
+      <InstructionsPanel agent="queue" title="Running the queue" />
+      <InstructionsPanel agent="claim" title="Working a claim" />
     </>
   );
 }

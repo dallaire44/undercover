@@ -187,12 +187,12 @@ Success criteria:
 
 Success criteria:
 
-- [ ] Vitest: with steps that include two `read` steps, "Sections read" lists exactly those two section names in order.
-- [ ] Vitest: the instructions page shows both panels' text and has no textbox or button.
-- [ ] E2E: posting a `read` step "Policy wording, 5. Baggage and Personal Effects" to CLM-1018 makes it appear under "Sections read" on its claim page.
-- [ ] E2E: the instructions page shows `backend/instructions/queue.md` and `backend/instructions/claim.md`, each in its own panel, and has no textbox or button.
-- [ ] Both pages checked with the Playwright MCP server in light and dark modes.
-- [ ] The pre-commit checks pass and the phase is committed.
+- [x] Vitest: with steps that include two `read` steps, "Sections read" lists exactly those two section names in order.
+- [x] Vitest: the instructions page shows both panels' text and has no textbox or button.
+- [x] E2E: posting a `read` step "Policy wording, 5. Baggage and Personal Effects" to CLM-1017 makes it appear under "Sections read" on its claim page.
+- [x] E2E: the instructions page shows `backend/instructions/queue.md` and `backend/instructions/claim.md`, each in its own panel, and has no textbox or button.
+- [x] Both pages checked with the Playwright MCP server in light and dark modes.
+- [x] The pre-commit checks pass and the phase is committed.
 
 ## Phase 6: The docs and a live run of five claims
 
