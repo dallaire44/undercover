@@ -241,13 +241,26 @@ def test_one_run_at_a_time(client, start):
     assert client.post("/api/runs", json={"cap": 1}).status_code == 409
 
 
-def test_the_command_line(client, claim_agent):
-    run_id = cli.start("CLM-1001")
-    assert cli.follow(run_id) == f"{run_id} finished: CLM-1001: declined"
+def test_the_command_line(client, claim_agent, capsys):
+    cli.main(["--claim", "CLM-1001"])
+    assert capsys.readouterr().out.endswith("finished: CLM-1001: declined\n")
+
+
+def test_the_command_line_needs_a_cap_or_a_claim(capsys):
+    for argv in ([], ["5"], ["--cap", "5", "--claim", "CLM-1001"], ["--cap", "x"]):
+        with pytest.raises(SystemExit):
+            cli.parse(argv)
+    assert "usage: uv run -m agent" in capsys.readouterr().err
+
+
+def test_the_command_line_shows_a_refusal(client, start):
+    start(5)
+    with pytest.raises(SystemExit, match="Refused: A run is already running"):
+        cli.start(cli.parse(["--cap", "5"]))
 
 
 def test_the_command_line_follows_the_to_do_list(client, start, monkeypatch, capsys):
-    run_id = cli.start("3")
+    run_id = cli.start(cli.parse(["--cap", "3"]))
     todo = {"content": "CLM-1001", "status": "to_do"}
     client.put(f"/api/runs/{run_id}/todos", json={"todos": [todo]})
 
