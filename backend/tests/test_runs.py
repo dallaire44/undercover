@@ -1,10 +1,10 @@
 from contextlib import closing
 
 import pytest
-from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
 from backend import db, runs
+from backend.errors import Refused
 from backend.main import app
 from backend.tests.conftest import decide, status
 
@@ -125,7 +125,7 @@ def test_the_to_do_list(client, run_id):
 
 
 def test_one_run_at_a_time(client, run_id):
-    with closing(db.connect()) as conn, pytest.raises(HTTPException, match="already"):
+    with closing(db.connect()) as conn, pytest.raises(Refused, match="already"):
         runs.start(conn, 5)
 
 

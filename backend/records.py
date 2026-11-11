@@ -3,9 +3,8 @@
 import json
 import sqlite3
 
-from fastapi import HTTPException
-
 from backend import db
+from backend.errors import NotFound
 from backend.models import (
     ClaimDetail,
     ClaimSummary,
@@ -29,7 +28,7 @@ def document(conn: sqlite3.Connection, table: str, key: str, value: str) -> dict
     query = f"SELECT doc FROM {table} WHERE {key} = ?"  # noqa: S608
     row = conn.execute(query, (value,)).fetchone()
     if row is None:
-        raise HTTPException(404, f"{value} not found")
+        raise NotFound(f"{value} not found")
     return json.loads(row["doc"])
 
 
@@ -45,7 +44,7 @@ def status(conn: sqlite3.Connection, claim_id: str) -> str:
         "SELECT status FROM claims WHERE claim_id = ?", (claim_id,)
     ).fetchone()
     if row is None:
-        raise HTTPException(404, f"{claim_id} not found")
+        raise NotFound(f"{claim_id} not found")
     return row["status"]
 
 

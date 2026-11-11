@@ -4,9 +4,8 @@ import re
 from functools import cache
 from typing import NamedTuple
 
-from fastapi import HTTPException
-
 from backend import db
+from backend.errors import NotFound
 
 NAMES = {"policy_wording": "Policy wording", "claims_manual": "Claims manual"}
 COMMON = {"the", "and", "for", "with", "what", "when", "how", "are", "was", "does"}
@@ -81,4 +80,4 @@ def read(document: str, number: str) -> str:
     for section in sections(document) if document in NAMES else []:
         if section.number == number:
             return f"{section.heading()}\n\n{section.body}"
-    raise HTTPException(404, f"{document} has no section {number}")
+    raise NotFound(f"{document} has no section {number}")

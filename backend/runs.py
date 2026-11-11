@@ -2,9 +2,8 @@
 
 import sqlite3
 
-from fastapi import HTTPException
-
-from backend import records, rules, steps
+from backend import db, records, steps
+from backend.errors import NotFound, Refused
 from backend.models import ClaimSummary, ReturnRequest, Run, StepRequest, Todo
 
 MAX_ATTEMPTS = 2
@@ -14,13 +13,13 @@ RESTARTED = "The backend restarted during the run."
 def start(conn: sqlite3.Connection, cap: int) -> Run:
     """Start a run capped at `cap` claims, unless one is already running."""
     if conn.execute("SELECT 1 FROM runs WHERE status = 'running'").fetchone():
-        raise rules.conflict("A run is already running")
+        raise Refused("A run is already running")
     count = conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
     run_id = f"RUN-{count + 1:04d}"
     with conn:
         conn.execute(
             "INSERT INTO runs VALUES (?, ?, 'running', '', ?, NULL)",
-            (run_id, cap, rules.now()),
+            (run_id, cap, db.now()),
         )
     return get(conn, run_id)
 
@@ -29,7 +28,7 @@ def row(conn: sqlite3.Connection, run_id: str) -> sqlite3.Row:
     """Return a run's row, or raise 404."""
     found = conn.execute("SELECT * FROM runs WHERE run_id = ?", (run_id,)).fetchone()
     if found is None:
-        raise HTTPException(404, f"{run_id} not found")
+        raise NotFound(f"{run_id} not found")
     return found
 
 
@@ -37,7 +36,7 @@ def running(conn: sqlite3.Connection, run_id: str) -> sqlite3.Row:
     """Return a run's row if it is running, or refuse."""
     found = row(conn, run_id)
     if found["status"] != "running":
-        raise rules.conflict(f"{run_id} is {found['status']}")
+        raise Refused(f"{run_id} is {found['status']}")
     return found
 
 
@@ -85,9 +84,9 @@ def take_claim(conn: sqlite3.Connection, run_id: str, claim_id: str) -> ClaimSum
     """Move a waiting claim into the run and in progress, within the run's cap."""
     run = running(conn, run_id)
     if records.status(conn, claim_id) != "waiting":
-        raise rules.conflict(f"{claim_id} is not waiting")
+        raise Refused(f"{claim_id} is not waiting")
     if claim_id not in {c.claim_id for c in claims_to_work(conn, run_id)}:
-        raise rules.conflict(f"The run's cap of {run['cap']} claims is reached")
+        raise Refused(f"The run's cap of {run['cap']} claims is reached")
     with conn:
         conn.execute(
             "UPDATE claims SET status = 'in_progress', run_id = ? WHERE claim_id = ?",
@@ -101,7 +100,7 @@ def return_claim(
 ) -> ClaimSummary:
     """After a failed attempt, return the claim to the queue or to a handler."""
     if records.status(conn, claim_id) != "in_progress":
-        raise rules.conflict(f"{claim_id} is not in progress")
+        raise Refused(f"{claim_id} is not in progress")
     attempts = records.summary(conn, claim_id).attempts + 1
     if attempts < MAX_ATTEMPTS:
         state, outcome = "waiting", f"Back in the queue after attempt {attempts}."
@@ -138,7 +137,7 @@ def close(conn: sqlite3.Connection, run_id: str, state: str, summary: str) -> Ru
     with conn:
         conn.execute(
             "UPDATE runs SET status = ?, summary = ?, finished_at = ? WHERE run_id = ?",
-            (state, summary, rules.now(), run_id),
+            (state, summary, db.now(), run_id),
         )
     return get(conn, run_id)
 
@@ -148,10 +147,10 @@ def finish(conn: sqlite3.Connection, run_id: str, summary: str) -> Run:
     running(conn, run_id)
     working = claim_ids(conn, run_id, "in_progress")
     if working:
-        raise rules.conflict(f"Still in progress: {', '.join(working)}")
+        raise Refused(f"Still in progress: {', '.join(working)}")
     missed = [c.claim_id for c in claims_to_work(conn, run_id)]
     if missed:
-        raise rules.conflict(f"Still to work within the cap: {', '.join(missed)}")
+        raise Refused(f"Still to work within the cap: {', '.join(missed)}")
     return close(conn, run_id, "finished", summary)
 
 

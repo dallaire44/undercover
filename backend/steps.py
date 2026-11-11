@@ -2,14 +2,14 @@
 
 import sqlite3
 
-from backend import records, rules
+from backend import db, records
 from backend.models import Step, StepRequest
 
 
 def add_step(conn: sqlite3.Connection, claim_id: str, request: StepRequest) -> Step:
     """Store one step of the agent's work."""
     records.status(conn, claim_id)
-    created_at = rules.now()
+    created_at = db.now()
     with conn:
         cursor = conn.execute(
             """INSERT INTO steps (claim_id, thread_id, kind, text, created_at)

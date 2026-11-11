@@ -6,10 +6,11 @@ from contextlib import asynccontextmanager, closing
 from pathlib import Path
 from typing import Literal
 
-from fastapi import BackgroundTasks, Depends, FastAPI
-from fastapi.responses import PlainTextResponse
+from fastapi import BackgroundTasks, Depends, FastAPI, Request
+from fastapi.responses import JSONResponse, PlainTextResponse
 
 from backend import db, documents, records, rules, runner, runs, steps
+from backend.errors import NotFound, Refused
 from backend.models import (
     ClaimDetail,
     ClaimSummary,
@@ -46,6 +47,18 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 
 
 app = FastAPI(title="UnderCover", lifespan=lifespan)
+
+
+@app.exception_handler(NotFound)
+def not_found(_: Request, error: Exception) -> JSONResponse:
+    """Answer 404 for a record that does not exist."""
+    return JSONResponse({"detail": str(error)}, status_code=404)
+
+
+@app.exception_handler(Refused)
+def refused(_: Request, error: Exception) -> JSONResponse:
+    """Answer 409 for a request the rules refuse."""
+    return JSONResponse({"detail": str(error)}, status_code=409)
 
 
 @app.get("/api/health", operation_id="health")

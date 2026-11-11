@@ -7,7 +7,8 @@ from contextlib import closing
 from fastapi import BackgroundTasks
 
 from agent import harness
-from backend import db, records, rules, runs
+from backend import db, records, runs
+from backend.errors import Refused
 from backend.models import Run
 
 
@@ -27,7 +28,7 @@ def start_run(conn: sqlite3.Connection, cap: int, tasks: BackgroundTasks) -> Run
 def start_one(conn: sqlite3.Connection, claim_id: str, tasks: BackgroundTasks) -> Run:
     """Start a run on one waiting claim, worked by a claim agent alone."""
     if records.status(conn, claim_id) != "waiting":
-        raise rules.conflict(f"{claim_id} is not waiting")
+        raise Refused(f"{claim_id} is not waiting")
     run = runs.start(conn, 1)
     if agent_on():
         tasks.add_task(run_one, run.run_id, claim_id)

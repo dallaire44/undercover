@@ -5,6 +5,7 @@ import os
 import sqlite3
 from collections.abc import Iterator
 from contextlib import closing
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -53,6 +54,11 @@ def connect() -> sqlite3.Connection:
     )
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def now() -> str:
+    """Return the current time, to the second, as stored in the database."""
+    return datetime.now(UTC).isoformat(timespec="seconds")
 
 
 def get_db() -> Iterator[sqlite3.Connection]:
