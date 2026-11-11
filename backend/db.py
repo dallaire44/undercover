@@ -6,6 +6,7 @@ import sqlite3
 from collections.abc import Iterator
 from contextlib import closing
 from datetime import UTC, datetime
+from functools import cache
 from pathlib import Path
 from typing import Any
 
@@ -67,8 +68,9 @@ def get_db() -> Iterator[sqlite3.Connection]:
         yield conn
 
 
+@cache
 def load(name: str) -> Any:
-    """Read one JSON file from `data/`."""
+    """Read one JSON file from `data/`, once."""
     return json.loads((DATA / f"{name}.json").read_text(encoding="utf-8"))
 
 

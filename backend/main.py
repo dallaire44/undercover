@@ -208,7 +208,7 @@ def return_claim(
     claim_id: str, request: ReturnRequest, conn: sqlite3.Connection = Db
 ) -> ClaimSummary:
     """Return a claim after a failed attempt: to the queue, or to a handler."""
-    return runs.return_claim(conn, claim_id, request)
+    return runs.return_claim(conn, claim_id, request.thread_id, request.reason)
 
 
 @app.put("/api/runs/{run_id}/todos", operation_id="write_todos")

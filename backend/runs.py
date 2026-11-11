@@ -4,7 +4,7 @@ import sqlite3
 
 from backend import db, records, steps
 from backend.errors import NotFound, Refused
-from backend.models import ClaimSummary, ReturnRequest, Run, StepRequest, Todo
+from backend.models import ClaimSummary, Run, RunState, State, StepRequest, Todo
 
 MAX_ATTEMPTS = 2
 RESTARTED = "The backend restarted during the run."
@@ -40,12 +40,14 @@ def running(conn: sqlite3.Connection, run_id: str) -> sqlite3.Row:
     return found
 
 
-def claim_ids(conn: sqlite3.Connection, run_id: str, state: str = "%") -> list[str]:
+def claim_ids(
+    conn: sqlite3.Connection, run_id: str, state: State | None = None
+) -> list[str]:
     """Return the ids of the run's claims, optionally only those in one state."""
     rows = conn.execute(
-        "SELECT claim_id FROM claims WHERE run_id = ? AND status LIKE ? "
-        "ORDER BY claim_id",
-        (run_id, state),
+        "SELECT claim_id FROM claims WHERE run_id = :run_id "
+        "AND (:state IS NULL OR status = :state) ORDER BY claim_id",
+        {"run_id": run_id, "state": state},
     )
     return [r["claim_id"] for r in rows]
 
@@ -96,12 +98,13 @@ def take_claim(conn: sqlite3.Connection, run_id: str, claim_id: str) -> ClaimSum
 
 
 def return_claim(
-    conn: sqlite3.Connection, claim_id: str, request: ReturnRequest
+    conn: sqlite3.Connection, claim_id: str, thread_id: str, reason: str
 ) -> ClaimSummary:
     """After a failed attempt, return the claim to the queue or to a handler."""
-    if records.status(conn, claim_id) != "in_progress":
+    row = records.claim_row(conn, claim_id)
+    if row["status"] != "in_progress":
         raise Refused(f"{claim_id} is not in progress")
-    attempts = records.summary(conn, claim_id).attempts + 1
+    attempts = row["attempts"] + 1
     if attempts < MAX_ATTEMPTS:
         state, outcome = "waiting", f"Back in the queue after attempt {attempts}."
     else:
@@ -114,8 +117,8 @@ def return_claim(
             "UPDATE claims SET status = ?, attempts = ? WHERE claim_id = ?",
             (state, attempts, claim_id),
         )
-    text = f"{request.reason}\n{outcome}"
-    step = StepRequest(thread_id=request.thread_id, kind="message", text=text)
+    text = f"{reason}\n{outcome}"
+    step = StepRequest(thread_id=thread_id, kind="message", text=text)
     steps.add_step(conn, claim_id, step)
     return records.summary(conn, claim_id)
 
@@ -132,7 +135,7 @@ def write_todos(conn: sqlite3.Connection, run_id: str, todos: list[Todo]) -> lis
     return todos
 
 
-def close(conn: sqlite3.Connection, run_id: str, state: str, summary: str) -> Run:
+def close(conn: sqlite3.Connection, run_id: str, state: RunState, summary: str) -> Run:
     """Mark the run finished or stopped, with its summary."""
     with conn:
         conn.execute(
@@ -157,7 +160,7 @@ def finish(conn: sqlite3.Connection, run_id: str, summary: str) -> Run:
 def stop(conn: sqlite3.Connection, run_id: str, reason: str) -> Run:
     """Stop the run, returning each claim it had in progress."""
     for claim_id in claim_ids(conn, run_id, "in_progress"):
-        return_claim(conn, claim_id, ReturnRequest(thread_id=run_id, reason=reason))
+        return_claim(conn, claim_id, thread_id=run_id, reason=reason)
     return close(conn, run_id, "stopped", reason)
 
 

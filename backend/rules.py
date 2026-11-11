@@ -11,6 +11,7 @@ from backend.models import (
     PaymentRequest,
     SignOff,
     SignOffRequest,
+    State,
 )
 
 
@@ -19,7 +20,7 @@ def approval_limit() -> float:
     return db.load("company")["payout_approval_limit"]
 
 
-def set_status(conn: sqlite3.Connection, claim_id: str, state: str) -> None:
+def set_status(conn: sqlite3.Connection, claim_id: str, state: State) -> None:
     """Move a claim to a new state."""
     conn.execute("UPDATE claims SET status = ? WHERE claim_id = ?", (state, claim_id))
 
@@ -87,7 +88,7 @@ def sign_off(
     conn: sqlite3.Connection, claim_id: str, request: SignOffRequest
 ) -> SignOff:
     """Record a handler's sign-off, release the payment and finish the claim."""
-    handler = records.document(conn, "handlers", "handler_id", request.handler_id)
+    handler = records.document(conn, "handlers", request.handler_id)
     if records.status(conn, claim_id) != "awaiting_sign_off":
         raise Refused(f"{claim_id} is not waiting for sign-off")
     query = "SELECT payout FROM decisions WHERE claim_id = ?"
