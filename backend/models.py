@@ -4,8 +4,12 @@ from typing import Literal
 
 from pydantic import BaseModel, Field
 
-State = Literal["waiting", "in_progress", "awaiting_sign_off", "decided"]
+State = Literal[
+    "waiting", "in_progress", "awaiting_sign_off", "decided", "needs_handler"
+]
 Verdict = Literal["approve", "decline", "refer"]
+RunState = Literal["running", "finished", "stopped"]
+TodoState = Literal["to_do", "in_progress", "done", "left_for_handler"]
 
 
 class ClaimCore(BaseModel):
@@ -16,6 +20,7 @@ class ClaimCore(BaseModel):
     submitted_on: str
     customer_name: str
     status: State
+    attempts: int
 
 
 class ClaimSummary(ClaimCore):
@@ -130,3 +135,36 @@ class Handler(BaseModel):
     role: str
     email: str
     can_approve_over_limit: bool
+
+
+class RunRequest(BaseModel):
+    cap: int = Field(ge=1)
+
+
+class Todo(BaseModel):
+    content: str
+    status: TodoState
+
+
+class TodoList(BaseModel):
+    todos: list[Todo]
+
+
+class ReturnRequest(BaseModel):
+    thread_id: str
+    reason: str
+
+
+class FinishRequest(BaseModel):
+    summary: str
+
+
+class Run(BaseModel):
+    run_id: str
+    cap: int
+    status: RunState
+    summary: str
+    started_at: str
+    finished_at: str | None
+    claim_ids: list[str]
+    todos: list[Todo]

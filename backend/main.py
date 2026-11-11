@@ -2,28 +2,33 @@
 
 import sqlite3
 from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, closing
 from pathlib import Path
 from typing import Literal
 
 from fastapi import BackgroundTasks, Depends, FastAPI
 from fastapi.responses import PlainTextResponse
 
-from backend import db, documents, records, rules, runner, steps
+from backend import db, documents, records, rules, runner, runs, steps
 from backend.models import (
     ClaimDetail,
     ClaimSummary,
     CustomerHistory,
     DecisionRecord,
     DecisionRequest,
+    FinishRequest,
     Handler,
     Payment,
     PaymentRequest,
     Policy,
+    ReturnRequest,
+    Run,
     SignOff,
     SignOffRequest,
     Step,
     StepRequest,
+    Todo,
+    TodoList,
 )
 
 HERE = Path(__file__).parent
@@ -32,8 +37,10 @@ Db = Depends(db.get_db)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    """Create and seed the database on first start."""
+    """Create and seed the database on first start, and stop any run left running."""
     db.init()
+    with closing(db.connect()) as conn:
+        runs.recover(conn)
     yield
 
 
@@ -152,6 +159,58 @@ def sign_off(
 ) -> SignOff:
     """Sign off a payout over the limit, which pays the claim."""
     return rules.sign_off(conn, claim_id, request)
+
+
+@app.get("/api/runs/latest", operation_id="get_latest_run")
+def get_latest_run(conn: sqlite3.Connection = Db) -> Run | None:
+    """Get the latest run with its to-do list, or null before the first."""
+    return runs.latest(conn)
+
+
+@app.get("/api/runs/{run_id}", operation_id="get_run")
+def get_run(run_id: str, conn: sqlite3.Connection = Db) -> Run:
+    """Get one run with its claims, to-do list and summary."""
+    return runs.get(conn, run_id)
+
+
+@app.get("/api/runs/{run_id}/claims-to-work", operation_id="list_claims_to_work")
+def list_claims_to_work(
+    run_id: str, conn: sqlite3.Connection = Db
+) -> list[ClaimSummary]:
+    """List the waiting claims this run may still work."""
+    return runs.claims_to_work(conn, run_id)
+
+
+@app.post("/api/runs/{run_id}/claims/{claim_id}", operation_id="take_claim")
+def take_claim(
+    run_id: str, claim_id: str, conn: sqlite3.Connection = Db
+) -> ClaimSummary:
+    """Take a waiting claim into the run and start it, within the run's cap."""
+    return runs.take_claim(conn, run_id, claim_id)
+
+
+@app.post("/api/claims/{claim_id}/return", operation_id="return_claim")
+def return_claim(
+    claim_id: str, request: ReturnRequest, conn: sqlite3.Connection = Db
+) -> ClaimSummary:
+    """Return a claim after a failed attempt: to the queue, or to a handler."""
+    return runs.return_claim(conn, claim_id, request)
+
+
+@app.put("/api/runs/{run_id}/todos", operation_id="write_todos")
+def write_todos(
+    run_id: str, request: TodoList, conn: sqlite3.Connection = Db
+) -> list[Todo]:
+    """Replace the run's to-do list."""
+    return runs.write_todos(conn, run_id, request.todos)
+
+
+@app.post("/api/runs/{run_id}/finish", operation_id="finish_run")
+def finish_run(
+    run_id: str, request: FinishRequest, conn: sqlite3.Connection = Db
+) -> Run:
+    """Finish the run with a summary, once no claim is left to work."""
+    return runs.finish(conn, run_id, request.summary)
 
 
 @app.post("/api/claims/{claim_id}/agent", operation_id="start_agent", status_code=202)

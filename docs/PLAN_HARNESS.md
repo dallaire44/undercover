@@ -104,17 +104,17 @@ The records and rules that let one run work the queue safely, with no agent yet.
 
 Success criteria:
 
-- [ ] `uv run pytest backend/tests/test_runs.py` passes, with a test for each rule:
-  - [ ] **The cap:** a run with cap 2 takes CLM-1001 and CLM-1002, and taking CLM-1003 is 409 "The run's cap of 2 claims is reached". `list_claims_to_work` is then empty, and CLM-1003 stays `waiting`.
-  - [ ] **Back in the queue:** returning an `in_progress` claim makes it `waiting` with `attempts` 1 and a step with the reason. The same run can take it again at its cap, and it appears in `list_claims_to_work`.
-  - [ ] **Two failures:** returning it a second time makes it `needs_handler`, and it no longer appears in `list_claims_to_work`.
-  - [ ] **Not twice:** returning a `decided` or `awaiting_sign_off` claim is 409 and changes nothing. Taking a claim that is not waiting is 409.
-  - [ ] **The missed-claims check:** `finish_run` is 409 naming CLM-1002 while it is still to work, and 409 while a claim of the run is `in_progress`. Once both are done it finishes with the summary and a finish time.
-  - [ ] **The to-do list:** `write_todos` replaces the list, keeping order and statuses, and `get_latest_run` returns it. An unknown status is 422.
-  - [ ] **Recovery:** with a run `running` and a claim `in_progress`, starting the app marks the run `stopped` and returns the claim to `waiting` with `attempts` 1.
-- [ ] `test_openapi.py` passes with the new operations.
-- [ ] `npm run reset`, then `curl http://localhost:8000/api/runs/latest` returns `null`, and `curl http://localhost:8000/api/claims` shows 25 claims `waiting`.
-- [ ] The pre-commit checks pass and the phase is committed.
+- [x] `uv run pytest backend/tests/test_runs.py` passes, with a test for each rule:
+  - [x] **The cap:** a run with cap 2 takes CLM-1001 and CLM-1002, and taking CLM-1003 is 409 "The run's cap of 2 claims is reached". `list_claims_to_work` is then empty, and CLM-1003 stays `waiting`.
+  - [x] **Back in the queue:** returning an `in_progress` claim makes it `waiting` with `attempts` 1 and a step with the reason. The same run can take it again at its cap, and it appears in `list_claims_to_work`.
+  - [x] **Two failures:** returning it a second time makes it `needs_handler`, and it no longer appears in `list_claims_to_work`.
+  - [x] **Not twice:** returning a `decided` or `awaiting_sign_off` claim is 409 and changes nothing. Taking a claim that is not waiting is 409.
+  - [x] **The missed-claims check:** `finish_run` is 409 naming CLM-1002 while it is still to work, and 409 while a claim of the run is `in_progress`. Once both are done it finishes with the summary and a finish time.
+  - [x] **The to-do list:** `write_todos` replaces the list, keeping order and statuses, and `get_latest_run` returns it. An unknown status is 422.
+  - [x] **Recovery:** with a run `running` and a claim `in_progress`, starting the app marks the run `stopped` and returns the claim to `waiting` with `attempts` 1.
+- [x] `test_openapi.py` passes with the new operations.
+- [x] `npm run reset`, then `curl http://localhost:8000/api/runs/latest` returns `null`, and `curl http://localhost:8000/api/claims` shows 25 claims `waiting`.
+- [x] The pre-commit checks pass and the phase is committed.
 
 ## Phase 3: The queue agent, its claim agents and the runner
 

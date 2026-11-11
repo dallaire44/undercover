@@ -18,7 +18,7 @@ from backend.models import (
 )
 
 LIST_CLAIMS = """
-SELECT c.status, c.doc, d.decision, d.payout
+SELECT c.status, c.attempts, c.doc, d.decision, d.payout
 FROM claims c LEFT JOIN decisions d ON d.claim_id = c.claim_id
 ORDER BY c.claim_id
 """
@@ -60,13 +60,19 @@ def list_claims(conn: sqlite3.Connection) -> list[ClaimSummary]:
         claim = json.loads(row["doc"])
         summaries.append(
             ClaimSummary(
-                **{**claim, "status": row["status"]},
+                **{**claim, "status": row["status"], "attempts": row["attempts"]},
                 customer_name=names[claim["customer_id"]],
                 decision=row["decision"],
                 payout=row["payout"],
             )
         )
     return summaries
+
+
+def summary(conn: sqlite3.Connection, claim_id: str) -> ClaimSummary:
+    """Return one claim as it shows in the queue, or raise 404."""
+    status(conn, claim_id)
+    return next(c for c in list_claims(conn) if c.claim_id == claim_id)
 
 
 def signed_off(conn: sqlite3.Connection, row: sqlite3.Row) -> SignOff:
@@ -79,11 +85,13 @@ def get_claim(conn: sqlite3.Connection, claim_id: str) -> ClaimDetail:
     """Return one claim in full, with its decision, payment and sign-off."""
     claim = document(conn, "claims", "claim_id", claim_id)
     customer = document(conn, "customers", "customer_id", claim["customer_id"])
+    query = "SELECT attempts FROM claims WHERE claim_id = ?"
+    attempts = conn.execute(query, (claim_id,)).fetchone()["attempts"]
     decision, payment, sign_off = (
         one(conn, t, claim_id) for t in ("decisions", "payments", "sign_offs")
     )
     return ClaimDetail(
-        **{**claim, "status": status(conn, claim_id)},
+        **{**claim, "status": status(conn, claim_id), "attempts": attempts},
         customer_name=customer["name"],
         decision=DecisionRecord(**decision) if decision else None,
         payment=Payment(**payment) if payment else None,

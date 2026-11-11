@@ -1,6 +1,6 @@
 # Status
 
-The UnderCover claims pilot, built from `docs/PLAN.md`, and the agent's harness, being built from `docs/PLAN_HARNESS.md` (Phase 1 of 6 done).
+The UnderCover claims pilot, built from `docs/PLAN.md`, and the agent's harness, being built from `docs/PLAN_HARNESS.md` (Phases 1 and 2 of 6 done).
 
 ## Built so far
 
@@ -8,6 +8,7 @@ The UnderCover claims pilot, built from `docs/PLAN.md`, and the agent's harness,
   - `backend/documents.py` splits the policy wording and the claims manual into numbered sections: `list_sections` (the contents of both), `search_documents` (the sections that best match a few words, each with its best line) and `read_section` (one section, headed such as `Claims manual, 9. Repeat claims`). The whole wording is no longer served.
   - The rules are in `backend/rules.py`. `record_decision` takes approve, decline or refer. A decline or referral is decided with a payout of 0. An approval of $1,000 or less stays in progress until `pay_claim` pays it. An approval over $1,000 waits for sign-off: `pay_claim` is refused with 409 until `sign_off` records a handler, which then pays the claim.
   - `add_step` and `list_steps` keep the agent's steps on a claim.
+  - `backend/runs.py`: a run works the queue up to a cap of claims. `take_claim` moves a waiting claim into the run and in progress, and refuses past the cap; a claim the run returned stays in the run, so its retry does not use up the cap. `return_claim` follows a failed attempt: attempts plus one, then back to `waiting`, or `needs_handler` after two. `write_todos` replaces the run's to-do list (to do, in progress, done, left for a handler). `finish_run` refuses while a claim of the run is in progress or `list_claims_to_work` is not empty. `get_run` and `get_latest_run` read runs. One run at a time. On startup the backend stops any run left running and returns its claims in progress.
 - `agent/`: the UnderCover Agent, LangChain's `create_agent` on OpenRouter. `agent/model.py` holds the model, `deepseek/deepseek-v4.1-flash` with low reasoning effort, or `MODEL_NAME` if set, and the claim agent's middleware: `ModelRetryMiddleware` (two retries with backoff, then an error) and `ModelCallLimitMiddleware` (an error past 30 model calls). The OpenAI client's own retries are off, so the middleware is the one place retries happen. `agent/claim.py` `run(claim_id, thread_id)` fetches its instructions from the backend, works through eight tools (one backend call each, including the three document lookups), and posts every message, tool call and tool result as a step; a `read_section` result is a step of kind `read`. A refused call (4xx) goes back to the model as text. Run it with `uv run -m agent CLM-1001` while the backend is up.
   - `start_agent` and `work_queue` run the agent in a background task, with "Agent started" and "Agent finished" steps. A run that fails or ends without a decision records why and puts the claim back to `waiting`.
 - `dashboard/`: React, Vite and TypeScript in the UnderCover brand. The queue page has a count of claims in each state and the eight-column table. A claim page, opened from `#/claims/CLM-1001`, shows the summary, the decision and payment, the story, items, documents, policy and claim history. Light and dark start in the computer's setting. The "Dark mode" slider in the header, on every page, switches them and the browser remembers the choice (`localStorage` key `undercover-theme`); the mode is the `data-theme` attribute on `<html>`, set by a script in `index.html` before the page draws. `src/api.ts` holds the typed fetch functions.
@@ -25,12 +26,13 @@ The UnderCover claims pilot, built from `docs/PLAN.md`, and the agent's harness,
 | `in_progress` | The agent is working on it |
 | `awaiting_sign_off` | Approved over $1,000; payment on hold until a handler signs off |
 | `decided` | Declined, referred, or approved and paid |
+| `needs_handler` | Failed twice; left for a handler |
 
 ## Running it
 
 - `npm run dev` starts the backend and the dashboard.
 - `uv run -m agent CLM-1001` runs the agent on one claim from the command line, with the backend up.
-- `npm run reset` rebuilds the database from `data/`: all 25 claims waiting.
+- `npm run reset` rebuilds the database from `data/`: all 25 claims waiting. Run it once after pulling this build, since the tables changed.
 - `npm run check` runs every check.
 
 ## Commit guard

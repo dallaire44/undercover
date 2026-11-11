@@ -19,7 +19,8 @@ DOCUMENTS = {
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS claims (
-    claim_id TEXT PRIMARY KEY, status TEXT NOT NULL, doc TEXT NOT NULL);
+    claim_id TEXT PRIMARY KEY, status TEXT NOT NULL, doc TEXT NOT NULL,
+    attempts INTEGER NOT NULL, run_id TEXT);
 CREATE TABLE IF NOT EXISTS policies (policy_id TEXT PRIMARY KEY, doc TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS customers (customer_id TEXT PRIMARY KEY, doc TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS handlers (handler_id TEXT PRIMARY KEY, doc TEXT NOT NULL);
@@ -34,6 +35,12 @@ CREATE TABLE IF NOT EXISTS steps (
     id INTEGER PRIMARY KEY AUTOINCREMENT, claim_id TEXT NOT NULL,
     thread_id TEXT NOT NULL, kind TEXT NOT NULL, text TEXT NOT NULL,
     created_at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS runs (
+    run_id TEXT PRIMARY KEY, cap INTEGER NOT NULL, status TEXT NOT NULL,
+    summary TEXT NOT NULL, started_at TEXT NOT NULL, finished_at TEXT);
+CREATE TABLE IF NOT EXISTS todos (
+    run_id TEXT NOT NULL, position INTEGER NOT NULL, content TEXT NOT NULL,
+    status TEXT NOT NULL, PRIMARY KEY (run_id, position));
 """
 
 
@@ -66,7 +73,7 @@ def seed(conn: sqlite3.Connection) -> None:
             for record in load(table):
                 values = [record[key], json.dumps(record)]
                 if table == "claims":
-                    values.insert(1, "waiting")
+                    values = [values[0], "waiting", values[1], 0, None]
                 marks = ",".join("?" * len(values))
                 conn.execute(f"INSERT INTO {table} VALUES ({marks})", values)  # noqa: S608
 
