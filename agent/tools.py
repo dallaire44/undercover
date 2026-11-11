@@ -1,52 +1,57 @@
-"""The agent's tools: one backend call each."""
+"""The agents' tools: the claim agent's, then the queue agent's.
 
+A refused backend call raises `api.Refused`, which the harness hands back to the model.
+`work_claim` runs a claim agent, so this module and the harness import each other.
+"""
+
+import json
+from dataclasses import dataclass
 from typing import Literal
 
-from langchain_core.tools import tool
+from langchain.tools import ToolRuntime, tool
+from pydantic import BaseModel
 
-from agent import api
+from agent import api, harness
 
 
-def call(
-    method: str, path: str, body: dict | None = None, params: dict | None = None
-) -> str:
-    """Call the backend. A refusal comes back as text for the model to read."""
-    with api.backend() as client:
-        response = client.request(method, path, json=body, params=params)
-    if response.is_client_error:
-        return f"Refused ({response.status_code}): {response.json()['detail']}"
-    response.raise_for_status()
-    return response.text
+@dataclass
+class RunContext:
+    run_id: str
+
+
+class TodoItem(BaseModel):
+    content: str
+    status: Literal["to_do", "in_progress", "done", "left_for_handler"]
 
 
 @tool
 def get_claim(claim_id: str) -> str:
     """Get one claim in full: its story, items and documents."""
-    return call("GET", f"/api/claims/{claim_id}")
+    return json.dumps(api.get_claim(claim_id))
 
 
 @tool
 def get_policy(policy_id: str) -> str:
     """Get a policy with its plan, trip and travelers."""
-    return call("GET", f"/api/policies/{policy_id}")
+    return json.dumps(api.get_policy(policy_id))
 
 
 @tool
 def get_claim_history(customer_id: str) -> str:
     """Get a customer's name and earlier claims."""
-    return call("GET", f"/api/customers/{customer_id}/history")
+    return json.dumps(api.get_claim_history(customer_id))
 
 
 @tool
 def list_sections() -> str:
     """List the sections of the policy wording and the claims manual."""
-    return call("GET", "/api/documents")
+    return api.list_sections()
 
 
 @tool
 def search_documents(query: str) -> str:
     """Find the sections of the wording and the manual that match a few words."""
-    return call("GET", "/api/documents/search", params={"query": query})
+    return api.search_documents(query)
 
 
 @tool
@@ -54,7 +59,7 @@ def read_section(
     document: Literal["policy_wording", "claims_manual"], number: str
 ) -> str:
     """Read one section of the policy wording or the claims manual, such as 9."""
-    return call("GET", f"/api/documents/{document}/sections/{number}")
+    return api.read_section(document, number)
 
 
 @tool
@@ -72,16 +77,16 @@ def record_decision(
         "reason": reason,
         "policy_section": policy_section,
     }
-    return call("POST", f"/api/claims/{claim_id}/decision", body)
+    return json.dumps(api.record_decision(claim_id, body))
 
 
 @tool
 def pay_claim(claim_id: str, amount: float) -> str:
     """Pay an approved claim exactly the amount of its payout."""
-    return call("POST", f"/api/claims/{claim_id}/payment", {"amount": amount})
+    return json.dumps(api.pay_claim(claim_id, amount))
 
 
-TOOLS = [
+CLAIM_TOOLS = [
     get_claim,
     get_policy,
     get_claim_history,
@@ -91,3 +96,51 @@ TOOLS = [
     record_decision,
     pay_claim,
 ]
+
+
+def line(found: api.Json) -> str:
+    """Describe a claim to work in one line."""
+    return (
+        f"{found['claim_id']}: {found['claim_type'].replace('_', ' ')}, "
+        f"${found['amount_claimed']:,.2f}, submitted {found['submitted_on']}, "
+        f"{found['attempts']} earlier attempts. {found['summary']}"
+    )
+
+
+@tool
+def list_claims_to_work(runtime: ToolRuntime[RunContext]) -> str:
+    """List the waiting claims this run may still work."""
+    run_id = runtime.context.run_id
+    found = api.list_claims_to_work(run_id)
+    if not found:
+        return "No claims left to work."
+    run = api.get_run(run_id)
+    room = run["cap"] - len(run["claim_ids"])
+    header = (
+        f"The run's cap is {run['cap']} claims. It has taken {len(run['claim_ids'])}, "
+        f"so it can take {room} more, plus any of its own back in the queue."
+    )
+    return "\n".join([header, *(line(c) for c in found)])
+
+
+@tool
+def write_todos(todos: list[TodoItem], runtime: ToolRuntime[RunContext]) -> str:
+    """Replace your to-do list. Send the whole list, in order, every time."""
+    api.write_todos(runtime.context.run_id, [todo.model_dump() for todo in todos])
+    return "To-do list saved."
+
+
+@tool
+def work_claim(claim_id: str, runtime: ToolRuntime[RunContext]) -> str:
+    """Work one claim with a fresh claim agent. Returns the outcome in one line."""
+    return harness.work_claim(runtime.context.run_id, claim_id)
+
+
+@tool
+def finish_run(summary: str, runtime: ToolRuntime[RunContext]) -> str:
+    """Finish the run with your summary for the handlers."""
+    api.finish_run(runtime.context.run_id, summary)
+    return "Run finished."
+
+
+QUEUE_TOOLS = [list_claims_to_work, write_todos, work_claim, finish_run]

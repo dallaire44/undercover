@@ -21,30 +21,25 @@ def parse(argv: list[str] | None = None) -> argparse.Namespace:
 
 def start(args: argparse.Namespace) -> str:
     """Start the run, and return its id. A refusal ends the program with its reason."""
-    with api.backend() as client:
-        if args.claim:
-            response = client.post(f"/api/claims/{args.claim}/agent")
-        else:
-            response = client.post("/api/runs", json={"cap": args.cap})
-    if response.is_client_error:
-        raise SystemExit(f"Refused: {response.json()['detail']}")
-    response.raise_for_status()
-    return response.json()["run_id"]
+    try:
+        run = api.start_agent(args.claim) if args.claim else api.start_run(args.cap)
+    except api.Refused as refusal:
+        raise SystemExit(f"Refused: {refusal.detail}") from refusal
+    return run["run_id"]
 
 
 def follow(run_id: str) -> str:
     """Print the run's to-do list as it changes, then return how the run ended."""
     shown = ""
-    with api.backend() as client:
-        while True:
-            run = client.get(f"/api/runs/{run_id}").json()
-            todos = "\n".join(f"[{t['status']}] {t['content']}" for t in run["todos"])
-            if todos != shown:
-                print(todos + "\n")
-                shown = todos
-            if run["status"] != "running":
-                return f"{run_id} {run['status']}: {run['summary']}"
-            time.sleep(POLL_SECONDS)
+    while True:
+        run = api.get_run(run_id)
+        todos = "\n".join(f"[{t['status']}] {t['content']}" for t in run["todos"])
+        if todos != shown:
+            print(todos + "\n")
+            shown = todos
+        if run["status"] != "running":
+            return f"{run_id} {run['status']}: {run['summary']}"
+        time.sleep(POLL_SECONDS)
 
 
 def main(argv: list[str] | None = None) -> None:

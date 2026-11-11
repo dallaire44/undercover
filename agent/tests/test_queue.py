@@ -3,7 +3,7 @@ from contextlib import closing
 import pytest
 from langchain_core.messages import AIMessage, ToolMessage
 
-from agent import claim, cli, model, queue
+from agent import cli, harness
 from agent.tests.conftest import Recorder, call, decide, stub
 from backend import db, runner, runs
 
@@ -31,7 +31,7 @@ def claim_agent(client, monkeypatch):
         decide(client, claim_id)
         return "Declined."
 
-    monkeypatch.setattr(claim, "run", run)
+    monkeypatch.setattr(harness, "run_claim", run)
     return failing
 
 
@@ -55,7 +55,7 @@ def test_a_failed_claim_does_not_stop_the_run(client, start, claim_agent):
     claim_agent["CLM-1002"] = 2
     run_id = start(3)
     replies = [*work("CLM-1001", "CLM-1002", "CLM-1003", "CLM-1002"), *finish()]
-    queue.run_queue(run_id, stub(*replies))
+    harness.run_queue(run_id, stub(*replies))
     assert status(client, "CLM-1001") == "decided"
     assert status(client, "CLM-1003") == "decided"
     assert status(client, "CLM-1002") == "needs_handler"
@@ -66,7 +66,7 @@ def test_a_failed_claim_is_tried_again(client, start, claim_agent):
     claim_agent["CLM-1002"] = 1
     run_id = start(2)
     replies = [*work("CLM-1001", "CLM-1002", "CLM-1002"), *finish()]
-    queue.run_queue(run_id, stub(*replies))
+    harness.run_queue(run_id, stub(*replies))
     record = client.get("/api/claims/CLM-1002").json()
     assert record["status"] == "decided"
     assert record["attempts"] == 1
@@ -76,14 +76,14 @@ def test_a_failed_claim_is_tried_again(client, start, claim_agent):
 def test_work_claim_reports_in_one_line(client, start, claim_agent):
     claim_agent["CLM-1002"] = 2
     run_id = start(2)
-    assert queue.work_claim(run_id, "CLM-1001") == "CLM-1001: declined"
-    assert queue.work_claim(run_id, "CLM-1002") == (
+    assert harness.work_claim(run_id, "CLM-1001") == "CLM-1001: declined"
+    assert harness.work_claim(run_id, "CLM-1002") == (
         "CLM-1002: failed, back in the queue to try again. The agent failed: timed out"
     )
-    assert queue.work_claim(run_id, "CLM-1002").startswith(
+    assert harness.work_claim(run_id, "CLM-1002").startswith(
         "CLM-1002: failed twice, left for a handler."
     )
-    assert queue.work_claim(run_id, "CLM-1003") == (
+    assert harness.work_claim(run_id, "CLM-1003") == (
         "CLM-1003: not taken. The run's cap of 2 claims is reached"
     )
 
@@ -94,20 +94,22 @@ def test_work_claim_reports_payments(client, start, monkeypatch):
         if claim_id == "CLM-1001":
             client.post(f"/api/claims/{claim_id}/payment", json={"amount": 420.0})
 
-    monkeypatch.setattr(claim, "run", approve)
+    monkeypatch.setattr(harness, "run_claim", approve)
     run_id = start(3)
-    assert queue.work_claim(run_id, "CLM-1001") == "CLM-1001: approved, $420.00 paid"
-    assert queue.work_claim(run_id, "CLM-1003") == (
+    assert harness.work_claim(run_id, "CLM-1001") == "CLM-1001: approved, $420.00 paid"
+    assert harness.work_claim(run_id, "CLM-1003") == (
         "CLM-1003: approved, $3,750.00 waiting for sign-off"
     )
 
 
 def test_an_approval_left_unpaid_goes_back_in_the_queue(client, start, monkeypatch):
     monkeypatch.setattr(
-        claim, "run", lambda claim_id, _: decide(client, claim_id, "approve", 420.0)
+        harness,
+        "run_claim",
+        lambda claim_id, _: decide(client, claim_id, "approve", 420.0),
     )
     run_id = start(1)
-    line = queue.work_claim(run_id, "CLM-1001")
+    line = harness.work_claim(run_id, "CLM-1001")
     assert line == (
         "CLM-1001: failed, back in the queue to try again. "
         "The agent finished without completing the claim."
@@ -118,7 +120,7 @@ def test_an_approval_left_unpaid_goes_back_in_the_queue(client, start, monkeypat
 def test_the_cap_on_a_run(client, start, claim_agent):
     run_id = start(2)
     replies = [*work("CLM-1001", "CLM-1002", "CLM-1003"), *finish()]
-    queue.run_queue(run_id, stub(*replies))
+    harness.run_queue(run_id, stub(*replies))
     assert run_of(client, run_id)["claim_ids"] == ["CLM-1001", "CLM-1002"]
     claims = client.get("/api/claims").json()
     assert [c["status"] for c in claims].count("waiting") == 23
@@ -130,7 +132,7 @@ def test_the_check_for_missed_claims(client, start, claim_agent):
     model_ = Recorder(
         messages=iter([*work("CLM-1001"), *finish()[:1], *work("CLM-1002"), *finish()])
     )
-    queue.run_queue(run_id, model_)
+    harness.run_queue(run_id, model_)
     refusal = model_.seen[2][-1]
     assert isinstance(refusal, ToolMessage)
     assert refusal.text.startswith("Refused (409): Still to work within the cap:")
@@ -153,7 +155,7 @@ def test_the_to_do_list_and_the_claims_to_work(client, start):
             ]
         )
     )
-    assert queue.run_queue(run_id, model_) == "Paused."
+    assert harness.run_queue(run_id, model_) == "Paused."
     header, *listed = model_.seen[1][-1].text.splitlines()
     assert header.startswith(
         "The run's cap is 2 claims. It has taken 0, so it can take 2"
@@ -172,9 +174,9 @@ def test_a_fresh_start_for_each_claim(client, start, monkeypatch):
         calls.append(recorder)
         return recorder
 
-    monkeypatch.setattr(claim, "model", fresh)
+    monkeypatch.setattr(harness, "model", fresh)
     run_id = start(2)
-    queue.run_queue(run_id, stub(*work("CLM-1001", "CLM-1002"), AIMessage("Stop.")))
+    harness.run_queue(run_id, stub(*work("CLM-1001", "CLM-1002"), AIMessage("Stop.")))
     for claim_id, recorder in zip(["CLM-1001", "CLM-1002"], calls, strict=True):
         first = recorder.seen[0]
         assert len(first) == 2
@@ -189,7 +191,7 @@ def test_a_fresh_start_for_each_claim(client, start, monkeypatch):
 
 def test_a_run_that_ends_without_finishing_is_stopped(client, start, monkeypatch):
     run_id = start(2)
-    monkeypatch.setattr(queue, "model", lambda: stub(AIMessage(content="Bye.")))
+    monkeypatch.setattr(harness, "model", lambda: stub(AIMessage(content="Bye.")))
     runner.run_queue(run_id)
     run = run_of(client, run_id)
     assert run["status"] == "stopped"
@@ -199,7 +201,7 @@ def test_a_run_that_ends_without_finishing_is_stopped(client, start, monkeypatch
 def test_a_failing_queue_agent_is_retried_then_stops_the_run(
     client, start, monkeypatch
 ):
-    monkeypatch.setattr(model, "RETRY_DELAY_SECONDS", 0.001)
+    monkeypatch.setattr(harness, "RETRY_DELAY_SECONDS", 0.001)
 
     class Broken(Recorder):
         def _generate(self, messages, *args, **kwargs):
@@ -207,10 +209,10 @@ def test_a_failing_queue_agent_is_retried_then_stops_the_run(
             raise ConnectionError("provider unavailable")
 
     broken = Broken(messages=iter([]))
-    monkeypatch.setattr(queue, "model", lambda: broken)
+    monkeypatch.setattr(harness, "model", lambda: broken)
     run_id = start(2)
     runner.run_queue(run_id)
-    assert len(broken.seen) == 1 + model.QUEUE_RETRIES
+    assert len(broken.seen) == 1 + harness.QUEUE_RETRIES
     run = run_of(client, run_id)
     assert run["status"] == "stopped"
     assert run["summary"] == "The agent failed: provider unavailable"
@@ -227,7 +229,7 @@ def test_one_named_claim(client, claim_agent):
 
 
 def test_a_queue_run_from_the_api(client, monkeypatch):
-    monkeypatch.setattr(queue, "model", lambda: stub(*finish()))
+    monkeypatch.setattr(harness, "model", lambda: stub(*finish()))
     run = client.post("/api/runs", json={"cap": 0})
     assert run.status_code == 422
     response = client.post("/api/runs", json={"cap": 1})
@@ -275,7 +277,7 @@ def test_the_command_line_follows_the_to_do_list(client, start, monkeypatch, cap
 
 def test_no_claims_left_to_work(client, start, claim_agent):
     run_id = start(1)
-    queue.work_claim(run_id, "CLM-1001")
+    harness.work_claim(run_id, "CLM-1001")
     model_ = Recorder(messages=iter([call("list_claims_to_work"), AIMessage("Done.")]))
-    queue.run_queue(run_id, model_)
+    harness.run_queue(run_id, model_)
     assert model_.seen[1][-1].text == "No claims left to work."

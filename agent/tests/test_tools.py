@@ -1,4 +1,6 @@
-from agent import tools
+import pytest
+
+from agent import api, tools
 
 
 def test_read_tools(client):
@@ -16,12 +18,12 @@ def test_lookup_tools(client):
     assert section.startswith("Claims manual, 10. Meals without receipts")
 
 
-def test_refusal_goes_back_to_the_model(client):
-    reply = tools.get_claim.invoke({"claim_id": "CLM-9999"})
-    assert reply == "Refused (404): CLM-9999 not found"
+def test_a_refusal_is_raised(client):
+    with pytest.raises(api.Refused, match=r"^Refused \(404\): CLM-9999 not found$"):
+        tools.get_claim.invoke({"claim_id": "CLM-9999"})
 
 
-def test_blocked_payment_message(client):
+def test_blocked_payment(client):
     tools.record_decision.invoke(
         {
             "claim_id": "CLM-1003",
@@ -31,5 +33,5 @@ def test_blocked_payment_message(client):
             "policy_section": "5. Baggage",
         }
     )
-    reply = tools.pay_claim.invoke({"claim_id": "CLM-1003", "amount": 3750.0})
-    assert "needs a handler's sign-off" in reply
+    with pytest.raises(api.Refused, match="needs a handler's sign-off"):
+        tools.pay_claim.invoke({"claim_id": "CLM-1003", "amount": 3750.0})

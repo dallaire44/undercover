@@ -26,7 +26,7 @@ def test_a_failing_queue_agent_returns_its_claims(client, monkeypatch):
         client.post(f"/api/runs/{run_id}/claims/CLM-1001")
         raise RuntimeError("provider unavailable")
 
-    monkeypatch.setattr(runner.queue, "run_queue", run_queue)
+    monkeypatch.setattr(runner.harness, "run_queue", run_queue)
     run = run_of(client, start(client).json()["run_id"])
     assert run["status"] == "stopped"
     assert run["summary"] == "The agent failed: provider unavailable"
@@ -39,7 +39,7 @@ def test_a_finished_run_is_left_alone(client, monkeypatch):
         decide(client, "CLM-1001", "decline", 0.0)
         client.post(f"/api/runs/{run_id}/finish", json={"summary": "One declined."})
 
-    monkeypatch.setattr(runner.queue, "run_queue", run_queue)
+    monkeypatch.setattr(runner.harness, "run_queue", run_queue)
     run = run_of(client, start(client, 1).json()["run_id"])
     assert run["status"] == "finished"
     assert run["summary"] == "One declined."
@@ -51,7 +51,7 @@ def test_one_claim(client, monkeypatch):
         decide(client, claim_id, "refer", 0.0)
         return f"{claim_id}: referred"
 
-    monkeypatch.setattr(runner.queue, "work_claim", work_claim)
+    monkeypatch.setattr(runner.harness, "work_claim", work_claim)
     response = client.post("/api/claims/CLM-1001/agent")
     assert response.status_code == 202
     run = run_of(client, response.json()["run_id"])

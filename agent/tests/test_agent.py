@@ -2,7 +2,7 @@ import pytest
 from langchain.agents.middleware.model_call_limit import ModelCallLimitExceededError
 from langchain_core.messages import AIMessage
 
-from agent import claim, model
+from agent import harness
 from agent.tests.conftest import StubModel, call, stub
 
 READS = [
@@ -37,7 +37,9 @@ def test_run_pays_a_small_approval(client):
         call("pay_claim", claim_id="CLM-1001", amount=420.0),
         AIMessage(content="Approved, $420.00 paid."),
     ]
-    assert claim.run("CLM-1001", "t1", stub(*replies)) == "Approved, $420.00 paid."
+    assert (
+        harness.run_claim("CLM-1001", "t1", stub(*replies)) == "Approved, $420.00 paid."
+    )
     record = client.get("/api/claims/CLM-1001").json()
     assert record["status"] == "decided"
     assert record["payment"]["amount"] == 420.0
@@ -50,7 +52,7 @@ def test_run_pays_a_small_approval(client):
 
 
 def test_sections_read_are_steps_of_their_own(client):
-    claim.run("CLM-1001", "t1", stub(*READS, AIMessage(content="Done.")))
+    harness.run_claim("CLM-1001", "t1", stub(*READS, AIMessage(content="Done.")))
     reads = [s["text"] for s in steps(client, "CLM-1001") if s["kind"] == "read"]
     assert [r.splitlines()[0] for r in reads] == [
         "Policy wording, 3. Trip Delay",
@@ -64,7 +66,7 @@ def test_run_cannot_pay_over_the_limit(client):
         call("pay_claim", claim_id="CLM-1003", amount=3750.0),
         AIMessage(content="Waiting for sign-off."),
     ]
-    claim.run("CLM-1003", "t1", stub(*replies))
+    harness.run_claim("CLM-1003", "t1", stub(*replies))
     record = client.get("/api/claims/CLM-1003").json()
     assert record["status"] == "awaiting_sign_off"
     assert record["payment"] is None
@@ -76,14 +78,14 @@ def test_run_cannot_pay_over_the_limit(client):
 
 def test_system_prompt_is_the_claim_instructions(client, monkeypatch):
     seen = {}
-    real = claim.create_agent
+    real = harness.create_agent
 
     def spy(*args, **kwargs):
         seen.update(kwargs)
         return real(*args, **kwargs)
 
-    monkeypatch.setattr(claim, "create_agent", spy)
-    claim.run("CLM-1001", "t1", stub(AIMessage(content="Nothing to do.")))
+    monkeypatch.setattr(harness, "create_agent", spy)
+    harness.run_claim("CLM-1001", "t1", stub(AIMessage(content="Nothing to do.")))
     assert seen["system_prompt"] == client.get("/api/instructions/claim").text
 
 
@@ -100,30 +102,30 @@ class FlakyModel(StubModel):
 
 
 def test_a_failed_model_call_is_retried(client, monkeypatch):
-    monkeypatch.setattr(model, "RETRY_DELAY_SECONDS", 0.01)
+    monkeypatch.setattr(harness, "RETRY_DELAY_SECONDS", 0.01)
     replies = [decide("CLM-1001", 0.0), AIMessage(content="Done.")]
-    claim.run("CLM-1001", "t1", FlakyModel(messages=iter(replies)))
+    harness.run_claim("CLM-1001", "t1", FlakyModel(messages=iter(replies)))
     assert client.get("/api/claims/CLM-1001").json()["decision"] is not None
 
 
 def test_a_claim_that_loops_is_stopped(client):
     replies = [call("get_claim", claim_id="CLM-1001") for _ in range(40)]
     with pytest.raises(ModelCallLimitExceededError):
-        claim.run("CLM-1001", "t1", stub(*replies))
+        harness.run_claim("CLM-1001", "t1", stub(*replies))
     calls = [s for s in steps(client, "CLM-1001") if s["kind"] == "tool_call"]
-    assert len(calls) == model.CLAIM_MODEL_CALLS
+    assert len(calls) == harness.CLAIM_MODEL_CALLS
 
 
 def test_model_name(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     monkeypatch.delenv("MODEL_NAME", raising=False)
-    default = model.model()
+    default = harness.model()
     assert default.model_name == "deepseek/deepseek-v4.1-flash"
     assert default.reasoning_effort == "low"
     monkeypatch.setenv("MODEL_NAME", "openrouter/free")
-    assert model.model().model_name == "openrouter/free"
+    assert harness.model().model_name == "openrouter/free"
 
 
 def test_blank_messages_are_not_steps():
     message = AIMessage(content="\n\n", tool_calls=[])
-    assert claim.steps_of(message) == []
+    assert harness.steps_of(message) == []

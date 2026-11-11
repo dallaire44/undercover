@@ -6,7 +6,7 @@ from contextlib import closing
 
 from fastapi import BackgroundTasks
 
-from agent import queue
+from agent import harness
 from backend import db, records, rules, runs
 from backend.models import Run
 
@@ -38,7 +38,7 @@ def run_queue(run_id: str) -> None:
     """Run the queue agent. If it fails or never finishes, stop the run."""
     reason = "The agent ended without finishing the run."
     try:
-        queue.run_queue(run_id)
+        harness.run_queue(run_id)
     except Exception as error:  # noqa: BLE001
         reason = f"The agent failed: {error}"
     with closing(db.connect()) as conn:
@@ -48,6 +48,6 @@ def run_queue(run_id: str) -> None:
 
 def run_one(run_id: str, claim_id: str) -> None:
     """Work one claim, then finish the run with its outcome."""
-    outcome = queue.work_claim(run_id, claim_id)
+    outcome = harness.work_claim(run_id, claim_id)
     with closing(db.connect()) as conn:
         runs.close(conn, run_id, "finished", outcome)
