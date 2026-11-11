@@ -1,8 +1,10 @@
 import { getInstructions } from "./api";
 import { useLoad } from "./useLoad";
 
+const getClaimInstructions = () => getInstructions("claim");
+
 export function Instructions() {
-  const { data: text, failed } = useLoad(getInstructions);
+  const { data: text, failed } = useLoad(getClaimInstructions);
   if (failed) return <p>The instructions could not be loaded.</p>;
   return (
     <>

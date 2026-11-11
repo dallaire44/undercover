@@ -5,6 +5,7 @@ import type {
   Handler,
   History,
   Policy,
+  Run,
   Step,
 } from "./api";
 
@@ -16,6 +17,7 @@ export const waitingClaim: ClaimSummary = {
   submitted_on: "2026-06-24",
   customer_name: "Maya Patel",
   status: "waiting",
+  attempts: 0,
   decision: null,
   payout: null,
 };
@@ -133,3 +135,27 @@ export function stubApi(routes: Record<string, unknown>) {
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
 }
+
+export const runningRun: Run = {
+  run_id: "RUN-0001",
+  cap: 5,
+  status: "running",
+  summary: "",
+  started_at: "2026-06-25T10:00:00+00:00",
+  finished_at: null,
+  claim_ids: ["CLM-1001"],
+  todos: [
+    { content: "CLM-1001: trip delay, $420.00", status: "done" },
+    { content: "CLM-1004: baggage delay, $186.00", status: "in_progress" },
+    { content: "CLM-1009: baggage, $980.00", status: "left_for_handler" },
+    { content: "Check for missed claims", status: "to_do" },
+  ],
+};
+
+export const finishedRun: Run = {
+  ...runningRun,
+  status: "finished",
+  summary: "Worked 3 claims. Total paid: $420.00.",
+  finished_at: "2026-06-25T10:05:00+00:00",
+  claim_ids: ["CLM-1001", "CLM-1004", "CLM-1009"],
+};

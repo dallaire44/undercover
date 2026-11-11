@@ -20,6 +20,7 @@ export const STATES: Record<State, string> = {
   in_progress: "In progress",
   awaiting_sign_off: "Waiting for sign-off",
   decided: "Decided",
+  needs_handler: "Needs a handler",
 };
 
 export const VERDICTS: Record<Verdict, string> = {

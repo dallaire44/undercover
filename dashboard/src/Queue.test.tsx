@@ -1,11 +1,4 @@
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  waitFor,
-  within,
-} from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { decidedClaim, declinedClaim, stubApi, waitingClaim } from "./fixtures";
 import { Queue } from "./Queue";
@@ -77,18 +70,29 @@ it("counts the claims in each state", () => {
   expect(count("In progress")).toBe("0");
   expect(count("Waiting for sign-off")).toBe("0");
   expect(count("Decided")).toBe("2");
+  expect(count("Needs a handler")).toBe("0");
 });
 
-it("works the queue and then asks for a refresh", async () => {
-  const fetchMock = stubApi({ "/api/queue/agent": [] });
-  const onWork = vi.fn();
-  render(<Queue claims={claims} onWork={onWork} />);
-  fireEvent.click(screen.getByRole("button", { name: "Work the queue" }));
-  await waitFor(() => {
-    expect(onWork).toHaveBeenCalled();
-  });
-  expect(fetchMock).toHaveBeenCalledWith(
-    "/api/queue/agent",
-    expect.objectContaining({ method: "POST" }),
+it("counts the claims left for a handler", () => {
+  const left = {
+    ...waitingClaim,
+    claim_id: "CLM-1009",
+    status: "needs_handler" as const,
+  };
+  render(<Queue claims={[left, ...claims]} onWork={vi.fn()} />);
+  const counts = within(screen.getByRole("list", { name: "Claims by status" }));
+  const tile = counts.getByText("Needs a handler").closest("li");
+  expect(tile?.querySelector("strong")?.textContent).toBe("1");
+  const row = screen.getByRole("row", { name: /CLM-1009/ });
+  expect(within(row).getByText("Needs a handler").className).toBe(
+    "chip state-needs_handler",
   );
+  expect(within(row).getAllByText("—")).toHaveLength(2);
+});
+
+it("offers to work the waiting claims", () => {
+  stubApi({});
+  render(<Queue claims={claims} onWork={vi.fn()} />);
+  const input = screen.getByLabelText("Claims to work");
+  expect(input.getAttribute("max")).toBe("1");
 });

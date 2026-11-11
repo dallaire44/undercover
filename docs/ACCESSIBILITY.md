@@ -50,12 +50,13 @@ A "Color-blind mode" slider in the header, drawn like the "Dark mode" one (see `
 | In progress | Coral `#F78C6B` | vermilion `#D55E00` | black, 5.4:1 |
 | Waiting for sign-off | Marigold `#FFC145` | yellow `#F0E442` | black, 15.9:1 |
 | Decided | Sea Green `#06D6A0` | bluish green `#009E73` | black, 6.1:1 |
+| Needs a handler | Raspberry `#EF476F` | reddish purple `#CC79A7` | black, 6.9:1 |
 | Approved | Sea Green | bluish green `#009E73`, with a check | black, 6.1:1 |
 | Declined | Coral | vermilion `#D55E00`, with a cross | black, 5.4:1 |
 | Referred | Marigold | yellow `#F0E442`, with an arrow | black, 15.9:1 |
 | Payment on hold | Raspberry `#EF476F` | reddish purple `#CC79A7` | black, 6.9:1 |
 
-- The claim-state colors apply to the chips and to the dots on the count tiles.
+- The claim-state colors apply to the chips and to the dots on the count tiles. The to-do list of an agent run uses them too: To do as Waiting, In progress as In progress, Done as Decided, and Left for a handler as Needs a handler.
 - The symbols on the decision chips give Approved and Declined different shapes as well as colors. They are small inline SVG drawings, not emoji characters, and screen readers skip them, since the chip's word already says it.
 - Nothing else changes: not the layout, the fonts, the text and link colors, or light and dark mode. The mode works in both.
 - The choice is remembered per browser, like the dark mode switch.

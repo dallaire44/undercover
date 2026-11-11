@@ -167,17 +167,17 @@ Success criteria. Every test uses stub models, or a fake claim agent passed in:
 
 Success criteria:
 
-- [ ] Vitest: `RunPanel` with a running run shows "Running, up to 5 claims", lists four to-do items with their status words, and disables "Work the queue". With a finished run it shows the summary. Clicking "Work the queue" with the cap set to 3 posts `{"cap": 3}` to `/api/runs`.
-- [ ] Vitest: a `needs_handler` claim shows a "Needs a handler" chip and the count tile counts it.
-- [ ] E2E `e2e/run.spec.ts`:
+- [x] Vitest: `RunPanel` with a running run shows "Running, up to 5 claims", lists four to-do items with their status words, and disables "Work the queue". With a finished run it shows the summary. Clicking "Work the queue" with the cap set to 3 posts `{"cap": 3}` to `/api/runs`.
+- [x] Vitest: a `needs_handler` claim shows a "Needs a handler" chip and the count tile counts it.
+- [x] E2E `e2e/run.spec.ts`:
   1. On the queue page, set "Claims to work" to 2 and click "Work the queue". The page shows "Running, up to 2 claims".
   2. The test, acting as the agent, writes a to-do list of three items through the API. The page shows them within a few seconds.
   3. The test takes CLM-1001, decides and pays it, and marks its item done. The page shows "Done".
   4. The test finishes the run. The page shows the summary and "Work the queue" is enabled again.
-  5. CLM-1002 to CLM-1025 still read "Waiting".
-- [ ] E2E: after returning a claim twice through the API, the queue shows it as "Needs a handler" and the counts match the chips.
-- [ ] The queue page checked with the Playwright MCP server in light, dark and color-blind modes: the run panel is a rounded panel with no outline, and the chips are readable.
-- [ ] The pre-commit checks pass and the phase is committed.
+  5. A claim outside the run, such as CLM-1008, still reads "Waiting". (The e2e tests share one backend, so this uses CLM-1005 and CLM-1007, which no other test touches, and checks a claim outside the run instead of all of them.)
+- [x] E2E: after returning a claim twice through the API, the queue shows it as "Needs a handler" and the counts match the chips.
+- [x] The queue page checked with the Playwright MCP server in light, dark and color-blind modes: the run panel is a rounded panel with no outline, and the chips are readable.
+- [x] The pre-commit checks pass and the phase is committed.
 
 ## Phase 5: The claim page and the instructions page
 

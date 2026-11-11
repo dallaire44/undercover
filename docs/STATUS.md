@@ -1,6 +1,6 @@
 # Status
 
-The UnderCover claims pilot, built from `docs/PLAN.md`, and the agent's harness, being built from `docs/PLAN_HARNESS.md` (Phases 1 to 3 of 6 done).
+The UnderCover claims pilot, built from `docs/PLAN.md`, and the agent's harness, being built from `docs/PLAN_HARNESS.md` (Phases 1 to 4 of 6 done).
 
 ## Built so far
 
@@ -14,11 +14,12 @@ The UnderCover claims pilot, built from `docs/PLAN.md`, and the agent's harness,
   - `work_claim(run_id, claim_id)` is plain code: it takes the claim into the run, posts "Agent started", runs a fresh claim agent on a new thread, and posts "Agent finished" once the claim has left `in_progress`. Otherwise, or if the claim agent raised, it calls `return_claim` with the reason. It always answers in one line, such as `CLM-1001: approved, $420.00 paid`.
   - `backend/runner.py`: `start_run` (`POST /api/runs`, with a cap) runs the queue agent in a background task, and `start_agent` on one claim starts a run with a cap of 1 that calls `work_claim` alone. A run whose agent fails or ends without finishing is stopped and its claims in progress are returned. `UNDERCOVER_AGENT=off` creates runs without starting the agent.
 - `dashboard/`: React, Vite and TypeScript in the UnderCover brand. The queue page has a count of claims in each state and the eight-column table. A claim page, opened from `#/claims/CLM-1001`, shows the summary, the decision and payment, the story, items, documents, policy and claim history. Light and dark start in the computer's setting. The "Dark mode" slider in the header, on every page, switches them and the browser remembers the choice (`localStorage` key `undercover-theme`); the mode is the `data-theme` attribute on `<html>`, set by a script in `index.html` before the page draws. `src/api.ts` holds the typed fetch functions.
-  - A waiting claim has a "Run the agent" button and the queue has "Work the queue". The claim page shows the agent's steps as a timeline (long tool results fold away) and polls every two seconds while the claim is in progress; the queue polls every two seconds.
+  - The queue page's "Agent run" panel (`RunPanel.tsx`) has "Claims to work" (starting at 5) and "Work the queue", disabled while a run is running. It shows the latest run: "Running, up to 5 claims", "Finished, 3 claims worked" or "Stopped" with the reason, its to-do list with a chip per item (To do, In progress, Done, Left for a handler), and the summary once finished. It polls every two seconds while the run is running. The counts and chips include "Needs a handler".
+  - A waiting claim has a "Run the agent" button. The claim page shows the agent's steps as a timeline (long tool results fold away) and polls every two seconds while the claim is in progress; the queue polls every two seconds.
   - A claim waiting for sign-off shows a "Payment on hold" panel with a handler picker and "Sign off and pay".
   - The "Color-blind mode" slider next to "Dark mode" switches the claim-state, decision and payment-on-hold colors to the Okabe-Ito palette and adds a check, cross or arrow to each decision chip (`data-colors` on `<html>`, key `undercover-colors`, off by default). The two sliders are independent. See `docs/ACCESSIBILITY.md`.
   - `#/instructions` shows the agent's instructions, read only.
-- `e2e/`: Playwright tests on their own backend (port 8001, `e2e/e2e.db`, rebuilt by `backend.seed` at the start of each run) and their own Vite (port 5174), so they never touch the data from `npm run dev`.
+- `e2e/`: Playwright tests on their own backend (port 8001, `e2e/e2e.db`, rebuilt by `backend.seed` at the start of each run, with `UNDERCOVER_AGENT=off` so no test starts the agent) and their own Vite (port 5174), so they never touch the data from `npm run dev`.
 
 ## Claim states
 

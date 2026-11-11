@@ -1,4 +1,5 @@
-export type State = "waiting" | "in_progress" | "awaiting_sign_off" | "decided";
+export type State =
+  "waiting" | "in_progress" | "awaiting_sign_off" | "decided" | "needs_handler";
 export type Verdict = "approve" | "decline" | "refer";
 
 export interface ClaimSummary {
@@ -9,6 +10,7 @@ export interface ClaimSummary {
   submitted_on: string;
   customer_name: string;
   status: State;
+  attempts: number;
   decision: Verdict | null;
   payout: number | null;
 }
@@ -44,6 +46,22 @@ export interface SignOff {
   signed_at: string;
 }
 
+export interface Todo {
+  content: string;
+  status: "to_do" | "in_progress" | "done" | "left_for_handler";
+}
+
+export interface Run {
+  run_id: string;
+  cap: number;
+  status: "running" | "finished" | "stopped";
+  summary: string;
+  started_at: string;
+  finished_at: string | null;
+  claim_ids: string[];
+  todos: Todo[];
+}
+
 export interface ClaimDetail {
   claim_id: string;
   summary: string;
@@ -52,6 +70,7 @@ export interface ClaimDetail {
   submitted_on: string;
   customer_name: string;
   status: State;
+  attempts: number;
   policy_id: string;
   customer_id: string;
   incident_date: string;
@@ -131,9 +150,10 @@ export const getHistory = (customerId: string) =>
   get<History>(`/api/customers/${customerId}/history`);
 export const listSteps = (id: string) => get<Step[]>(`/api/claims/${id}/steps`);
 export const listHandlers = () => get<Handler[]>("/api/handlers");
-export const getInstructions = async () =>
-  (await request("/api/instructions/claim")).text();
+export const getInstructions = async (agent: "queue" | "claim") =>
+  (await request(`/api/instructions/${agent}`)).text();
 export const startAgent = (id: string) => post(`/api/claims/${id}/agent`);
-export const workQueue = () => post("/api/queue/agent");
+export const startRun = (cap: number) => post("/api/runs", { cap });
+export const getLatestRun = () => get<Run | null>("/api/runs/latest");
 export const signOff = (id: string, handlerId: string) =>
   post(`/api/claims/${id}/sign-off`, { handler_id: handlerId });

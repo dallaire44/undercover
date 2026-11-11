@@ -1,12 +1,14 @@
-import { workQueue, type ClaimSummary, type State } from "./api";
+import type { ClaimSummary, State } from "./api";
 import { StatusChip, VerdictChip } from "./Chips";
 import { date, money, STATES, titleCase } from "./format";
+import { RunPanel } from "./RunPanel";
 
 const ORDER: State[] = [
   "waiting",
   "in_progress",
   "awaiting_sign_off",
   "decided",
+  "needs_handler",
 ];
 
 function Counts({ claims }: Readonly<{ claims: ClaimSummary[] }>) {
@@ -72,14 +74,10 @@ export function Queue({
   return (
     <>
       <h1>Claims queue</h1>
-      <p>
-        <button
-          type="button"
-          onClick={() => void workQueue().then(onWork, onWork)}
-        >
-          Work the queue
-        </button>
-      </p>
+      <RunPanel
+        waiting={claims.filter((claim) => claim.status === "waiting").length}
+        onStart={onWork}
+      />
       <Counts claims={claims} />
       <div className="panel table-panel">
         <table>

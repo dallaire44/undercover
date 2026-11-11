@@ -122,7 +122,7 @@ h3 {
 
 .counts {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   gap: 1rem;
   list-style: none;
   margin: 0 0 1rem;
@@ -248,6 +248,11 @@ dd {
   color: var(--decided-ink);
 }
 
+.state-needs_handler {
+  background: var(--alert);
+  color: var(--alert-ink);
+}
+
 .verdict-symbol {
   display: none;
   width: 0.85em;
@@ -279,6 +284,11 @@ button {
 
 button:hover {
   filter: brightness(0.95);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 select {
@@ -383,4 +393,55 @@ pre {
   .switch-dot {
     transition: none;
   }
+}
+
+.run form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
+
+.run input {
+  width: 5rem;
+  margin-left: 0.4rem;
+  padding: 0.3rem 0.5rem;
+  font: inherit;
+  font-family: "JetBrains Mono", monospace;
+  border: 0;
+  border-radius: 0.5rem;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.todos {
+  list-style: none;
+  padding: 0;
+  margin: 0.5rem 0;
+  display: grid;
+  gap: 0.4rem;
+}
+
+.todo-to_do {
+  background: var(--waiting);
+  color: var(--waiting-ink);
+}
+
+.todo-in_progress {
+  background: var(--in-progress);
+  color: var(--in-progress-ink);
+}
+
+.todo-done {
+  background: var(--decided);
+  color: var(--decided-ink);
+}
+
+.todo-left_for_handler {
+  background: var(--alert);
+  color: var(--alert-ink);
+}
+
+.summary {
+  white-space: pre-line;
 }
