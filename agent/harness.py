@@ -312,6 +312,8 @@ def run_claim(claim_id: str, thread_id: str, llm: BaseChatModel | None = None) -
 
 def outcome(record: api.Json) -> str:
     """Describe a finished claim in a few words."""
+    if record["status"] == "needs_handler":
+        return "failed twice, left for a handler"
     decision = record["decision"]
     if record["status"] == "awaiting_sign_off":
         return f"approved, ${decision['payout']:,.2f} waiting for sign-off"
@@ -339,11 +341,9 @@ def attempt(claim_id: str, thread_id: str) -> str:
 def work_claim(run_id: str, claim_id: str) -> str:
     """Take a claim into the run, or carry on one it holds, and report one line."""
     record = api.get_claim(claim_id)
-    if record["run_id"] == run_id and record["status"] in ("decided", "in_progress"):
-        if record["status"] == "decided":
-            return f"{claim_id}: {outcome(record)}"
-        return attempt(claim_id, record["thread_id"])
-    if record["run_id"] == run_id and record["status"] == "awaiting_sign_off":
+    if record["run_id"] == run_id and record["status"] != "waiting":
+        if record["status"] == "in_progress":
+            return attempt(claim_id, record["thread_id"])
         return f"{claim_id}: {outcome(record)}"
     try:
         thread_id = api.take_claim(run_id, claim_id)["thread_id"]
@@ -421,11 +421,21 @@ def resume(claim_id: str) -> None:
     attempt(claim_id, api.get_claim(claim_id)["thread_id"])
 
 
+def has_queue_thread(run_id: str) -> bool:
+    """Say whether a queue agent has worked the run, so has a thread to carry on."""
+    return checkpointer().get_tuple({"configurable": {"thread_id": run_id}}) is not None
+
+
 def pick_up() -> None:
-    """When the agent starts, carry on the run left running, or claims in progress."""
+    """When the agent starts, carry on the run left running, or claims in progress.
+
+    A run on one claim has no queue agent, so it is finished with its claim's line.
+    """
     api.wait_for_backend()
     run = api.get_latest_run()
-    if run and run["status"] == "running":
-        work_run(run["run_id"])
-    else:
+    if not run or run["status"] != "running":
         carry_on()
+    elif run["claim_ids"] and not has_queue_thread(run["run_id"]):
+        work_one(run["run_id"], run["claim_ids"][0])
+    else:
+        work_run(run["run_id"])

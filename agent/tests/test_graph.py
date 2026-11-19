@@ -2,7 +2,7 @@ import pytest
 from langchain_core.messages import AIMessage, ToolMessage
 
 from agent import harness
-from agent.tests.conftest import Recorder, call, stub
+from agent.tests.conftest import Recorder, StopsOnce, call, stub
 
 READS = [
     call("get_claim", claim_id="CLM-1001"),
@@ -20,19 +20,6 @@ def approve(claim_id, payout):
         reason="The wording covers it.",
         policy_section="3. Trip Delay",
     )
-
-
-class StopsOnce(Recorder):
-    """A stub model stopped partway, as by Ctrl-C, on its call number `stop_at`."""
-
-    stop_at: int = 3
-    stopped: bool = False
-
-    def _generate(self, messages, *args, **kwargs):
-        if len(self.seen) == self.stop_at and not self.stopped:
-            self.stopped = True
-            raise KeyboardInterrupt
-        return super()._generate(messages, *args, **kwargs)
 
 
 class Broken(Recorder):

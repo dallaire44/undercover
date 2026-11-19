@@ -1,7 +1,8 @@
+import pytest
 from fastapi.testclient import TestClient
 
 from agent import harness, service
-from agent.tests.conftest import Recorder, call, stub
+from agent.tests.conftest import Recorder, StopsOnce, call, stub
 from backend import db, runs
 from backend.tests.test_openapi import assert_every_operation_follows_the_rules
 
@@ -105,3 +106,26 @@ def test_the_service_sets_up_and_picks_up_when_it_starts(monkeypatch):
     with TestClient(service.app):
         pass
     assert started == ["pick up"]
+
+
+def test_on_start_a_run_on_one_claim_stopped_partway_is_finished(client, monkeypatch):
+    model_ = StopsOnce(
+        stop_at=1,
+        messages=iter(
+            [call("get_claim", claim_id="CLM-1001"), approve("CLM-1001", 420.0)]
+        ),
+    )
+    monkeypatch.setattr(harness, "model", lambda: model_)
+    with db.connect() as conn:
+        run_id = runs.start(conn, 1).run_id
+    with pytest.raises(KeyboardInterrupt):
+        harness.work_one(run_id, "CLM-1001")
+    assert not harness.has_queue_thread(run_id)
+
+    harness.pick_up()
+    run = client.get(f"/api/runs/{run_id}").json()
+    assert (run["status"], run["summary"]) == (
+        "finished",
+        "CLM-1001: approved, $420.00 paid",
+    )
+    assert harness.has_queue_thread(run_id) is False

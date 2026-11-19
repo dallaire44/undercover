@@ -87,6 +87,19 @@ class Recorder(StubModel):
         return super()._generate(messages, *args, **kwargs)
 
 
+class StopsOnce(Recorder):
+    """A stub model stopped partway, as by Ctrl-C, on its call number `stop_at`."""
+
+    stop_at: int = 3
+    stopped: bool = False
+
+    def _generate(self, messages, *args, **kwargs):
+        if len(self.seen) == self.stop_at and not self.stopped:
+            self.stopped = True
+            raise KeyboardInterrupt
+        return super()._generate(messages, *args, **kwargs)
+
+
 def decide(client, claim_id, decision="decline", payout=0.0):
     """Record a decision on a claim, as a claim agent would."""
     body = {
