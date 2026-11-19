@@ -33,7 +33,7 @@ def steps(client, claim_id):
 
 
 def test_a_small_approval_is_paid_straight_away(client):
-    harness.run_claim("CLM-1001", "t1", stub(*READS, decide("CLM-1001", 420.0)))
+    harness.run_claim("CLM-1001", "t1", None, stub(*READS, decide("CLM-1001", 420.0)))
     record = client.get("/api/claims/CLM-1001").json()
     assert record["status"] == "decided"
     assert record["payment"]["amount"] == 420.0
@@ -50,7 +50,7 @@ def test_the_model_cannot_pay():
 
 
 def test_sections_read_are_steps_of_their_own(client):
-    harness.run_claim("CLM-1001", "t1", stub(*READS, AIMessage(content="Done.")))
+    harness.run_claim("CLM-1001", "t1", None, stub(*READS, AIMessage(content="Done.")))
     reads = [s["text"] for s in steps(client, "CLM-1001") if s["kind"] == "read"]
     assert [r.splitlines()[0] for r in reads] == [
         "Policy wording, 3. Trip Delay",
@@ -61,7 +61,7 @@ def test_sections_read_are_steps_of_their_own(client):
 def test_system_prompt_is_the_claim_instructions(client):
     recorder = Recorder(messages=iter([AIMessage(content="Nothing to do.")]))
     recorder.seen.clear()
-    harness.run_claim("CLM-1001", "t1", recorder)
+    harness.run_claim("CLM-1001", "t1", None, recorder)
     first = recorder.seen[0]
     assert first[0].text == client.get("/api/instructions/claim").text
     assert first[1].text == "Decide claim CLM-1001."
@@ -82,14 +82,14 @@ class FlakyModel(StubModel):
 def test_a_failed_model_call_is_retried(client, monkeypatch):
     monkeypatch.setattr(harness, "RETRY_DELAY_SECONDS", 0.01)
     replies = [decide("CLM-1001", 0.0), AIMessage(content="Done.")]
-    harness.run_claim("CLM-1001", "t1", FlakyModel(messages=iter(replies)))
+    harness.run_claim("CLM-1001", "t1", None, FlakyModel(messages=iter(replies)))
     assert client.get("/api/claims/CLM-1001").json()["decision"] is not None
 
 
 def test_a_claim_that_loops_is_stopped(client):
     replies = [call("get_claim", claim_id="CLM-1001") for _ in range(40)]
     with pytest.raises(harness.TooManyModelCalls):
-        harness.run_claim("CLM-1001", "t1", stub(*replies))
+        harness.run_claim("CLM-1001", "t1", None, stub(*replies))
     calls = [s for s in steps(client, "CLM-1001") if s["kind"] == "tool_call"]
     assert len(calls) == harness.CLAIM_MODEL_CALLS
 
@@ -98,7 +98,7 @@ def test_model_name(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     monkeypatch.delenv("MODEL_NAME", raising=False)
     default = harness.model()
-    assert default.model_name == "deepseek/deepseek-v4.1-flash"
+    assert default.model_name == "openai/gpt-6-luna"
     assert default.reasoning_effort == "low"
     monkeypatch.setenv("MODEL_NAME", "openrouter/free")
     assert harness.model().model_name == "openrouter/free"
@@ -129,7 +129,7 @@ def test_the_payout_tool_works_out_the_payout(client):
         decide("CLM-1001", 0.0),
         AIMessage(content="Done."),
     ]
-    harness.run_claim("CLM-1001", "t1", stub(*replies))
+    harness.run_claim("CLM-1001", "t1", None, stub(*replies))
     results = [
         s["text"] for s in steps(client, "CLM-1001") if s["kind"] == "tool_result"
     ]

@@ -150,6 +150,30 @@ class Handler(BaseModel):
     can_approve_over_limit: bool
 
 
+class ModelCallRequest(BaseModel):
+    run_id: str | None
+    input_tokens: int = Field(ge=0)
+    output_tokens: int = Field(ge=0)
+    cost: float = Field(ge=0)
+
+
+class ModelCall(ModelCallRequest):
+    id: int
+    claim_id: str
+    called_at: str
+
+
+class WorkTimeRequest(BaseModel):
+    run_id: str | None
+    started_at: str
+    seconds: float = Field(ge=0)
+
+
+class WorkTime(WorkTimeRequest):
+    id: int
+    claim_id: str
+
+
 class RunRequest(BaseModel):
     cap: int = Field(ge=1)
 

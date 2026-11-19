@@ -1482,7 +1482,7 @@ wheels = [
 
 [[package]]
 name = "langgraph"
-version = "1.2.12"
+version = "1.2.23"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "langchain-core" },
@@ -1492,22 +1492,22 @@ dependencies = [
     { name = "pydantic" },
     { name = "xxhash" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/99/7e/c9e4431adb5eb78d15f0035aae162a113c80d037ceb433ddd78835217848/langgraph-1.2.12.tar.gz", hash = "sha256:5fae9fa4ce771e90f10ff19ce0d5aaef4b41d7632c713d769e89cbce1241a4b9", size = 734541, upload-time = "2026-09-21T14:43:29.684Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/be/ef/5498873952b2b5fab8707d3ef1f9960ee44ada25deb379924bb1715c2f28/langgraph-1.2.23.tar.gz", hash = "sha256:c405d9c750730e252b07f66d78fc3d7ace7d42414172fdf392c97d0143c7b041", size = 800739, upload-time = "2026-11-19T05:32:57.741Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/52/27/5a02054c535ed6fcfb2ab1e5c33c51c810cf1e773194ad28c928f0473509/langgraph-1.2.12-py3-none-any.whl", hash = "sha256:95403af7b510de8d79164742f71daaf866c69ca804a8cb72bef2cc1fa1ab9813", size = 250206, upload-time = "2026-09-21T14:43:28.196Z" },
+    { url = "https://files.pythonhosted.org/packages/ff/7b/67cfd61010f705c7bac85ee1378b42ed6b87c984d4aa3a9e4b9c0d5a5a2a/langgraph-1.2.23-py3-none-any.whl", hash = "sha256:148eb984aed7641248875634f9b06ec8965aa2582751483c186527eed38c2c06", size = 264483, upload-time = "2026-11-19T05:32:56.552Z" },
 ]
 
 [[package]]
 name = "langgraph-checkpoint"
-version = "4.2.0"
+version = "4.3.2"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "langchain-core" },
     { name = "ormsgpack" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/dc/e1/089c4c9e0a2fec7f883f82ae8e6a727138d50074cfeb6644bc2d13b1019b/langgraph_checkpoint-4.2.0.tar.gz", hash = "sha256:51a593b6bee684b0818e5d6e58e28ab340c6db7794575056ce7bd1b746a84ed7", size = 180239, upload-time = "2026-08-07T20:05:03.756Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/27/1e/8c885180ba6a57bff177b9ecb2e273aa32d9d29a093ba0a5214ef8f5136f/langgraph_checkpoint-4.3.2.tar.gz", hash = "sha256:fcab8468c7e965d7055e2a35c253d73a145624ef4728b150ca7c361f4afca286", size = 185401, upload-time = "2026-11-14T01:31:05.25Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/05/71/3b475f09bd57d3a5649792c66353312b4432afd843f301739dfcebd157f0/langgraph_checkpoint-4.2.0-py3-none-any.whl", hash = "sha256:0547fd228935a0b758865de3a3d6d7a2537c308895d0f9ab092ce9151b5da942", size = 56833, upload-time = "2026-08-07T20:05:02.655Z" },
+    { url = "https://files.pythonhosted.org/packages/d5/f1/c84ac1431857640bfb9ea811a58ab5b9c040da3842fd1bcf080655184db0/langgraph_checkpoint-4.3.2-py3-none-any.whl", hash = "sha256:60e02eb2c2eefc4c22fb1549f1c90b85ce9617377604596c5f34fbd6af0bd6e9", size = 58321, upload-time = "2026-11-14T01:31:03.733Z" },
 ]
 
 [[package]]
@@ -1527,20 +1527,20 @@ wheels = [
 
 [[package]]
 name = "langgraph-prebuilt"
-version = "1.1.0"
+version = "1.1.3"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "langchain-core" },
     { name = "langgraph-checkpoint" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/29/66/ed9b93f56bc17ef22d551892f0ac2b225a97fe0fcf23a511b857f70d590b/langgraph_prebuilt-1.1.0.tar.gz", hash = "sha256:3c579cf6eed2d17f9c157c2d0fcaddcd8688524e7022d3b22b37a3bf4589d528", size = 178833, upload-time = "2026-05-12T03:37:49.332Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/b5/51/e44110cba9383391e5fd41ff3a5832712f988bb9152a95f6ccb8e7b89bba/langgraph_prebuilt-1.1.3.tar.gz", hash = "sha256:7ee72332e925000e3d24d2d491dd0ebb9d3a44dbffe650185943b730a832cf6d", size = 183612, upload-time = "2026-11-19T05:26:06.632Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/e9/43/3fe1a700b8490ed02679cdbbc8c915eb23a092faf496c9c1118abcd10be3/langgraph_prebuilt-1.1.0-py3-none-any.whl", hash = "sha256:51e311747d755b751d5c6b39b0c1446124d3a7643d2515017e6714b323508fc9", size = 41043, upload-time = "2026-05-12T03:37:48.007Z" },
+    { url = "https://files.pythonhosted.org/packages/bc/f3/f1d3426c239dc7eca37e1e49586f7559cc224d3a12933e22e0070a4e8e13/langgraph_prebuilt-1.1.3-py3-none-any.whl", hash = "sha256:7b55eb1c2004348b73b9af9e2f81e5f3eda47dcf13d885ccb4195538426c55ce", size = 42512, upload-time = "2026-11-19T05:26:05.396Z" },
 ]
 
 [[package]]
 name = "langgraph-sdk"
-version = "0.4.5"
+version = "0.4.14"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "httpx" },
@@ -1549,9 +1549,9 @@ dependencies = [
     { name = "orjson" },
     { name = "websockets" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/e8/9c/7ff305b366ce986052a27dc5946839bef2823b3567664cbad22e294dff5a/langgraph_sdk-0.4.5.tar.gz", hash = "sha256:d49a98a2ee8e0c494b101a7caf8061c8b4b94d3ee5ada0ea2dbe50903a5487b1", size = 349783, upload-time = "2026-09-21T14:42:55.732Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/28/4d/d26d0393fa9a305199ebc4fbc2550b9b5b4fd33603bd8bd149ad6b84616f/langgraph_sdk-0.4.14.tar.gz", hash = "sha256:13eb1fee92504d87c1f0f43c8e213e7ba0a46bd23a07e3198e413d48efac5833", size = 371481, upload-time = "2026-11-06T03:03:23.191Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/49/a9/71a6499f3481bc00bf4f42a17cb81caf19a02fce762db356626d7214e2c2/langgraph_sdk-0.4.5-py3-none-any.whl", hash = "sha256:e03ef033a20d21288af496e9b6c08ae3afcc1b58dc5abcd37575bfd1a93045de", size = 162304, upload-time = "2026-09-21T14:42:54.623Z" },
+    { url = "https://files.pythonhosted.org/packages/14/f1/3db4776fb3673dbae57b0ad2e9f14d9a2c44bde8932df7df0f7671572ed3/langgraph_sdk-0.4.14-py3-none-any.whl", hash = "sha256:d47a6755890ae537aa80613a3138680ac77f5d256a2d3953af95a96328e6964d", size = 171310, upload-time = "2026-11-06T03:03:21.723Z" },
 ]
 
 [[package]]
@@ -3449,6 +3449,7 @@ dependencies = [
     { name = "langchain-mcp-adapters" },
     { name = "langchain-openai" },
     { name = "langfuse" },
+    { name = "langgraph" },
     { name = "langgraph-checkpoint-postgres" },
     { name = "mangum" },
     { name = "nbformat" },
@@ -3497,6 +3498,7 @@ requires-dist = [
     { name = "langchain-mcp-adapters", specifier = ">=0.3.2" },
     { name = "langchain-openai", specifier = ">=1.6.2" },
     { name = "langfuse", specifier = ">=4.16.0" },
+    { name = "langgraph", specifier = ">=1.2.23" },
     { name = "langgraph-checkpoint-postgres", specifier = ">=3.1.2" },
     { name = "mangum", specifier = ">=0.22.0" },
     { name = "nbformat", specifier = ">=5.11.1" },

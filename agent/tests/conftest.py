@@ -1,4 +1,5 @@
 from contextlib import nullcontext
+from typing import cast
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,10 +15,23 @@ REAL_ASK = agent_service.ask
 
 
 class StubModel(GenericFakeChatModel):
-    """A chat model that gives scripted replies in place of a real model."""
+    """A chat model that gives scripted replies, each with tokens and a cost."""
+
+    cost: float = 0.01
 
     def bind_tools(self, tools, **kwargs):
         return self
+
+    def _generate(self, *args, **kwargs):
+        result = super()._generate(*args, **kwargs)
+        reply = cast(AIMessage, result.generations[0].message)
+        reply.usage_metadata = {
+            "input_tokens": 1000,
+            "output_tokens": 100,
+            "total_tokens": 1100,
+        }
+        reply.response_metadata = {"token_usage": {"cost": self.cost}}
+        return result
 
 
 @pytest.fixture(autouse=True)

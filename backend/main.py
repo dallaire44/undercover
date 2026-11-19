@@ -19,6 +19,7 @@ from backend import (
     runner,
     runs,
     steps,
+    usage,
 )
 from backend.errors import NotFound, Refused
 from backend.models import (
@@ -28,6 +29,8 @@ from backend.models import (
     DecisionRequest,
     FinishRequest,
     Handler,
+    ModelCall,
+    ModelCallRequest,
     PaymentRequest,
     Payout,
     PayoutRequest,
@@ -42,6 +45,8 @@ from backend.models import (
     StopRequest,
     Todo,
     TodoList,
+    WorkTime,
+    WorkTimeRequest,
 )
 
 HERE = Path(__file__).parent
@@ -163,6 +168,22 @@ def list_steps(claim_id: str, conn: Connection = Db) -> list[Step]:
 def add_step(claim_id: str, request: StepRequest, conn: Connection = Db) -> Step:
     """Add one step of the agent's work to a claim."""
     return steps.add_step(conn, claim_id, request)
+
+
+@app.post("/api/claims/{claim_id}/model-calls", operation_id="record_model_call")
+def record_model_call(
+    claim_id: str, request: ModelCallRequest, conn: Connection = Db
+) -> ModelCall:
+    """Record one of the agent's model calls on a claim, with its tokens and cost."""
+    return usage.record_model_call(conn, claim_id, request)
+
+
+@app.post("/api/claims/{claim_id}/work-times", operation_id="record_work_time")
+def record_work_time(
+    claim_id: str, request: WorkTimeRequest, conn: Connection = Db
+) -> WorkTime:
+    """Record one stretch of the agent's work on a claim."""
+    return usage.record_work_time(conn, claim_id, request)
 
 
 @app.post("/api/claims/{claim_id}/decision", operation_id="record_decision")

@@ -23,7 +23,7 @@ def claim_agent(client, monkeypatch):
     """A fake claim agent that declines, and fails on the claims in `failing`."""
     failing: dict[str, int] = {}
 
-    def run(claim_id, thread_id):
+    def run(claim_id, thread_id, run_id):
         if failing.get(claim_id):
             failing[claim_id] -= 1
             raise RuntimeError("timed out")
@@ -88,7 +88,7 @@ def test_work_claim_reports_in_one_line(client, start, claim_agent):
 
 
 def test_work_claim_reports_payments(client, start, monkeypatch):
-    def approve(claim_id, thread_id):
+    def approve(claim_id, thread_id, run_id):
         decide(client, claim_id, "approve", 420.0 if claim_id == "CLM-1001" else 3750.0)
         if claim_id == "CLM-1001":
             client.post(f"/api/claims/{claim_id}/payment", json={"amount": 420.0})
@@ -105,7 +105,7 @@ def test_an_approval_left_unpaid_goes_back_in_the_queue(client, start, monkeypat
     monkeypatch.setattr(
         harness,
         "run_claim",
-        lambda claim_id, _: decide(client, claim_id, "approve", 420.0),
+        lambda claim_id, *_: decide(client, claim_id, "approve", 420.0),
     )
     run_id = start(1)
     line = harness.work_claim(run_id, "CLM-1001")

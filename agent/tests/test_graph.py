@@ -50,7 +50,7 @@ def steps(client, claim_id):
 
 
 def test_the_graph_waits_before_a_payout_over_the_limit(client):
-    harness.run_claim("CLM-1003", "t1", stub(approve("CLM-1003", 3750.0)))
+    harness.run_claim("CLM-1003", "t1", None, stub(approve("CLM-1003", 3750.0)))
     record = claim(client, "CLM-1003")
     assert record["status"] == "awaiting_sign_off"
     assert record["payment"] is None
@@ -61,12 +61,12 @@ def test_the_graph_waits_before_a_payout_over_the_limit(client):
 
 
 def test_a_sign_off_resumes_the_claim_and_pays_it_once(client):
-    harness.run_claim("CLM-1003", "t1", stub(approve("CLM-1003", 3750.0)))
+    harness.run_claim("CLM-1003", "t1", None, stub(approve("CLM-1003", 3750.0)))
     client.post("/api/claims/CLM-1003/sign-off", json={"handler_id": "HND-03"})
     assert claim(client, "CLM-1003")["status"] == "in_progress"
     idle = Recorder(messages=iter([]))
-    harness.run_claim("CLM-1003", "t1", idle)
-    harness.run_claim("CLM-1003", "t1", idle)
+    harness.run_claim("CLM-1003", "t1", None, idle)
+    harness.run_claim("CLM-1003", "t1", None, idle)
     assert idle.seen == []
     record = claim(client, "CLM-1003")
     assert record["status"] == "decided"
@@ -79,8 +79,8 @@ def test_a_sign_off_resumes_the_claim_and_pays_it_once(client):
 
 
 def test_no_resume_before_the_sign_off(client):
-    harness.run_claim("CLM-1003", "t1", stub(approve("CLM-1003", 3750.0)))
-    harness.run_claim("CLM-1003", "t1", Recorder(messages=iter([])))
+    harness.run_claim("CLM-1003", "t1", None, stub(approve("CLM-1003", 3750.0)))
+    harness.run_claim("CLM-1003", "t1", None, Recorder(messages=iter([])))
     assert thread("t1").next == ("sign_off",)
     assert claim(client, "CLM-1003")["payment"] is None
 
@@ -133,7 +133,7 @@ def test_a_repeated_decision_counts_as_done(client):
         "policy_section": "3. Trip Delay",
     }
     before = client.post("/api/claims/CLM-1001/decision", json=body).json()
-    harness.run_claim("CLM-1001", "t1", stub(approve("CLM-1001", 420.0)))
+    harness.run_claim("CLM-1001", "t1", None, stub(approve("CLM-1001", 420.0)))
     record = claim(client, "CLM-1001")
     assert record["decision"]["decided_at"] == before["decision"]["decided_at"]
     assert record["status"] == "decided"
@@ -144,7 +144,7 @@ def test_a_refused_call_goes_back_to_the_model_as_text(client):
     model_ = Recorder(
         messages=iter([approve("CLM-9999", 420.0), AIMessage(content="I'll stop.")])
     )
-    harness.run_claim("CLM-1001", "t1", model_)
+    harness.run_claim("CLM-1001", "t1", None, model_)
     refusal = model_.seen[1][-1]
     assert isinstance(refusal, ToolMessage)
     assert refusal.text == "Refused (404): CLM-9999 not found"

@@ -94,6 +94,18 @@ def add_step(claim_id: str, thread_id: str, kind: str, text: str) -> None:
     send("POST", f"/api/claims/{claim_id}/steps", json=body)
 
 
+def record_model_call(claim_id: str, run_id: str | None, usage: Json) -> None:
+    body = {"run_id": run_id, **usage}
+    send("POST", f"/api/claims/{claim_id}/model-calls", json=body)
+
+
+def record_work_time(
+    claim_id: str, run_id: str | None, started_at: str, seconds: float
+) -> None:
+    body = {"run_id": run_id, "started_at": started_at, "seconds": seconds}
+    send("POST", f"/api/claims/{claim_id}/work-times", json=body)
+
+
 def start_run(cap: int) -> Json:
     return send("POST", "/api/runs", json={"cap": cap}).json()
 

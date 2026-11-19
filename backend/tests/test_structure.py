@@ -20,3 +20,11 @@ def test_only_agent_service_reaches_the_agent():
     for path in BACKEND.glob("*.py"):
         if path.name != "agent_service.py":
             assert "httpx" not in path.read_text(encoding="utf-8"), path.name
+
+
+def test_only_usage_records_model_calls_and_work_times():
+    for path in BACKEND.glob("*.py"):
+        if path.name not in {"db.py", "usage.py"}:
+            text = path.read_text(encoding="utf-8")
+            assert "model_calls" not in text, path.name
+            assert "work_times" not in text, path.name

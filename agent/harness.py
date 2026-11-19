@@ -11,6 +11,7 @@ import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from functools import cache
 from typing import Annotated, Any, TypedDict, cast
 
@@ -50,7 +51,8 @@ from pydantic import SecretStr
 from agent import api, tools
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-DEFAULT_MODEL = "deepseek/deepseek-v4.1-flash"
+DEFAULT_MODEL = "openai/gpt-6-luna"
+DEFAULT_EFFORT = "low"
 TIMEOUT_SECONDS = 120
 CLAIM_MODEL_CALLS = 30
 CLAIM_RETRIES = 2
@@ -62,14 +64,20 @@ SCHEMA = "undercover"
 VERDICTS = {"decline": "declined", "refer": "referred"}
 
 
-def model() -> ChatOpenAI:
-    """Return the model named in MODEL_NAME, or DeepSeek V4.1 Flash by default."""
+def model_settings() -> tuple[str, str]:
+    """Return the model's name and reasoning effort: none for a model in MODEL_NAME."""
     name = os.getenv("MODEL_NAME")
+    return (name, "none") if name else (DEFAULT_MODEL, DEFAULT_EFFORT)
+
+
+def model() -> ChatOpenAI:
+    """Return the model named in MODEL_NAME, or GPT-6 Luna on low effort by default."""
+    name, effort = model_settings()
     return ChatOpenAI(
-        model=name or DEFAULT_MODEL,
+        model=name,
         base_url=OPENROUTER_BASE_URL,
         api_key=SecretStr(os.environ["OPENROUTER_API_KEY"]),
-        reasoning_effort=None if name else "low",
+        reasoning_effort=None if effort == "none" else effort,
         timeout=TIMEOUT_SECONDS,
         max_retries=0,
     )
@@ -147,10 +155,11 @@ class ClaimState(TypedDict):
 
 @dataclass
 class ClaimContext:
-    """What every node of a claim graph shares: the model and its instructions."""
+    """What every node of a claim graph shares: the model, its instructions, the run."""
 
     model: Runnable[LanguageModelInput, BaseMessage]
     instructions: SystemMessage
+    run_id: str | None
 
 
 type ClaimGraph = CompiledStateGraph[ClaimState, ClaimContext, ClaimState, ClaimState]
@@ -161,8 +170,21 @@ def agent(state: ClaimState, runtime: Runtime[ClaimContext]) -> dict[str, Any]:
     if state["model_calls"] >= CLAIM_MODEL_CALLS:
         raise TooManyModelCalls(f"Stopped after {CLAIM_MODEL_CALLS} model calls.")
     context = runtime.context
-    reply = context.model.invoke([context.instructions, *state["messages"]])
+    reply = cast(
+        AIMessage, context.model.invoke([context.instructions, *state["messages"]])
+    )
+    api.record_model_call(state["claim_id"], context.run_id, usage(reply))
     return {"messages": [reply], "model_calls": state["model_calls"] + 1}
+
+
+def usage(reply: AIMessage) -> api.Json:
+    """Return a reply's tokens and cost, as OpenRouter reports them."""
+    tokens = reply.usage_metadata or {"input_tokens": 0, "output_tokens": 0}
+    return {
+        "input_tokens": tokens["input_tokens"],
+        "output_tokens": tokens["output_tokens"],
+        "cost": reply.response_metadata["token_usage"]["cost"],
+    }
 
 
 def check(state: ClaimState) -> dict[str, Any]:
@@ -287,8 +309,29 @@ def post_steps(claim_id: str, thread_id: str, stream: Iterator[Any]) -> None:
                 api.add_step(claim_id, thread_id, kind, text)
 
 
-def run_claim(claim_id: str, thread_id: str, llm: BaseChatModel | None = None) -> None:
-    """Start or carry on a claim's thread, posting each step, until it ends or waits."""
+@contextmanager
+def timed(claim_id: str, run_id: str | None) -> Iterator[None]:
+    """Record how long one stretch of work on a claim takes, even if it fails."""
+    started = datetime.now(UTC)
+    try:
+        yield
+    finally:
+        seconds = (datetime.now(UTC) - started).total_seconds()
+        when = started.isoformat(timespec="milliseconds")
+        api.record_work_time(claim_id, run_id, when, seconds)
+
+
+def run_claim(
+    claim_id: str,
+    thread_id: str,
+    run_id: str | None,
+    llm: BaseChatModel | None = None,
+) -> None:
+    """Start or carry on a claim's thread, posting each step, until it ends or waits.
+
+    The time is recorded for each stretch of work, so a wait for a sign-off, when
+    the graph is not running, is never counted.
+    """
     graph = claim_graph()
     config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
     ready, start = starting_point(graph, config, claim_id)
@@ -297,8 +340,9 @@ def run_claim(claim_id: str, thread_id: str, llm: BaseChatModel | None = None) -
     context = ClaimContext(
         model=(llm or model()).bind_tools(tools.CLAIM_TOOLS),
         instructions=SystemMessage(api.get_instructions("claim")),
+        run_id=run_id,
     )
-    with tracing(claim_id, thread_id) as traced:
+    with timed(claim_id, run_id), tracing(claim_id, thread_id) as traced:
         stream = graph.stream(
             start,
             {**config, **traced},
@@ -322,11 +366,11 @@ def outcome(record: api.Json) -> str:
     return VERDICTS[decision["decision"]]
 
 
-def attempt(claim_id: str, thread_id: str) -> str:
+def attempt(claim_id: str, thread_id: str, run_id: str | None) -> str:
     """Work or carry on a claim on its thread, and return it to the queue on failure."""
     problem = "The agent finished without completing the claim."
     try:
-        run_claim(claim_id, thread_id)
+        run_claim(claim_id, thread_id, run_id)
     except Exception as error:  # noqa: BLE001
         problem = f"The agent failed: {error}"[:ERROR_CHARS]
     record = api.get_claim(claim_id)
@@ -343,14 +387,14 @@ def work_claim(run_id: str, claim_id: str) -> str:
     record = api.get_claim(claim_id)
     if record["run_id"] == run_id and record["status"] != "waiting":
         if record["status"] == "in_progress":
-            return attempt(claim_id, record["thread_id"])
+            return attempt(claim_id, record["thread_id"], run_id)
         return f"{claim_id}: {outcome(record)}"
     try:
         thread_id = api.take_claim(run_id, claim_id)["thread_id"]
     except api.Refused as refusal:
         return f"{claim_id}: not taken. {refusal.detail}"
     api.add_step(claim_id, thread_id, "message", "Agent started")
-    return attempt(claim_id, thread_id)
+    return attempt(claim_id, thread_id, run_id)
 
 
 CARRYING_ON = threading.Lock()
@@ -361,7 +405,7 @@ def carry_on() -> None:
     with CARRYING_ON:
         for claim in api.list_claims():
             if claim["status"] == "in_progress" and claim["thread_id"]:
-                attempt(claim["claim_id"], claim["thread_id"])
+                attempt(claim["claim_id"], claim["thread_id"], None)
 
 
 def queue_middleware() -> list[AgentMiddleware[Any, Any]]:
@@ -418,7 +462,7 @@ def work_one(run_id: str, claim_id: str) -> None:
 
 def resume(claim_id: str) -> None:
     """Pick a claim back up after its sign-off, and pay it."""
-    attempt(claim_id, api.get_claim(claim_id)["thread_id"])
+    attempt(claim_id, api.get_claim(claim_id)["thread_id"], None)
 
 
 def has_queue_thread(run_id: str) -> bool:

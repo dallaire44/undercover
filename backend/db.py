@@ -108,6 +108,26 @@ runs = Table(
     Column("started_at", String, nullable=False),
     Column("finished_at", String),
 )
+model_calls = Table(
+    "model_calls",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("claim_id", String, nullable=False),
+    Column("run_id", String),
+    Column("input_tokens", Integer, nullable=False),
+    Column("output_tokens", Integer, nullable=False),
+    Column("cost", Float, nullable=False),
+    Column("called_at", String, nullable=False),
+)
+work_times = Table(
+    "work_times",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("claim_id", String, nullable=False),
+    Column("run_id", String),
+    Column("started_at", String, nullable=False),
+    Column("seconds", Float, nullable=False),
+)
 todos = Table(
     "todos",
     metadata,
