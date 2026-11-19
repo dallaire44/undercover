@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 from typing import cast
 
 import pytest
@@ -137,13 +138,22 @@ def test_the_payout_tool_works_out_the_payout(client):
 
 def test_no_tracing_without_langfuse_keys(monkeypatch):
     monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
-    assert harness.tracing("CLM-1001", "t1") == {}
+    with harness.tracing("CLM-1001", "t1") as config:
+        assert config == {}
 
 
 def test_each_attempt_is_one_langfuse_session(monkeypatch):
+    sessions = []
+
+    @contextmanager
+    def propagate_attributes(session_id):
+        sessions.append(session_id)
+        yield
+
+    monkeypatch.setattr(harness, "propagate_attributes", propagate_attributes)
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-test")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-test")
-    config = harness.tracing("CLM-1001", "t1")
-    handlers = cast(list, config.get("callbacks"))
-    assert [type(h) for h in handlers] == [harness.CallbackHandler]
-    assert config.get("metadata") == {"langfuse_session_id": "CLM-1001 t1"}
+    with harness.tracing("CLM-1001", "t1") as config:
+        handlers = cast(list, config.get("callbacks"))
+        assert [type(h) for h in handlers] == [harness.CallbackHandler]
+    assert sessions == ["CLM-1001 t1"]

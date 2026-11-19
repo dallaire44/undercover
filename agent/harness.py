@@ -9,6 +9,7 @@ import json
 import os
 import threading
 from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from functools import cache
 from typing import Annotated, Any, TypedDict, cast
@@ -31,6 +32,7 @@ from langchain_core.messages import (
 )
 from langchain_core.runnables import Runnable, RunnableConfig
 from langchain_openai import ChatOpenAI
+from langfuse import propagate_attributes
 from langfuse.langchain import CallbackHandler
 from langgraph.checkpoint.base import BaseCheckpointSaver
 from langgraph.checkpoint.memory import InMemorySaver
@@ -100,14 +102,18 @@ def set_up_checkpoints() -> None:
         saver.setup()
 
 
-def tracing(claim_id: str, thread_id: str) -> RunnableConfig:
-    """Trace a claim in Langfuse, in one session per attempt, when the keys are set."""
+@contextmanager
+def tracing(claim_id: str, thread_id: str) -> Iterator[RunnableConfig]:
+    """Trace a claim in Langfuse, in one session per attempt, when the keys are set.
+
+    The session is set on everything traced inside, so a claim worked inside the
+    queue agent's run lands in its own session too.
+    """
     if not os.getenv("LANGFUSE_PUBLIC_KEY"):
-        return {}
-    return {
-        "callbacks": [CallbackHandler()],
-        "metadata": {"langfuse_session_id": f"{claim_id} {thread_id}"},
-    }
+        yield {}
+        return
+    with propagate_attributes(session_id=f"{claim_id} {thread_id}"):
+        yield {"callbacks": [CallbackHandler()]}
 
 
 def refused_as_text(
@@ -284,10 +290,7 @@ def post_steps(claim_id: str, thread_id: str, stream: Iterator[Any]) -> None:
 def run_claim(claim_id: str, thread_id: str, llm: BaseChatModel | None = None) -> None:
     """Start or carry on a claim's thread, posting each step, until it ends or waits."""
     graph = claim_graph()
-    config: RunnableConfig = {
-        **tracing(claim_id, thread_id),
-        "configurable": {"thread_id": thread_id},
-    }
+    config: RunnableConfig = {"configurable": {"thread_id": thread_id}}
     ready, start = starting_point(graph, config, claim_id)
     if not ready:
         return
@@ -295,15 +298,16 @@ def run_claim(claim_id: str, thread_id: str, llm: BaseChatModel | None = None) -
         model=(llm or model()).bind_tools(tools.CLAIM_TOOLS),
         instructions=SystemMessage(api.get_instructions("claim")),
     )
-    stream = graph.stream(
-        start,
-        config,
-        context=context,
-        stream_mode="updates",
-        version="v2",
-        durability="sync",
-    )
-    post_steps(claim_id, thread_id, stream)
+    with tracing(claim_id, thread_id) as traced:
+        stream = graph.stream(
+            start,
+            {**config, **traced},
+            context=context,
+            stream_mode="updates",
+            version="v2",
+            durability="sync",
+        )
+        post_steps(claim_id, thread_id, stream)
 
 
 def outcome(record: api.Json) -> str:
