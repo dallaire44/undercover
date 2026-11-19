@@ -1,6 +1,6 @@
 """What the agent uses on each claim: its model calls, and its time at work."""
 
-from sqlalchemy import Connection, insert
+from sqlalchemy import Connection, func, insert, select
 
 from backend import db, records
 from backend.db import model_calls, work_times
@@ -36,3 +36,24 @@ def record_work_time(
     ).scalar_one()
     conn.commit()
     return WorkTime(**request.model_dump(), id=time_id, claim_id=claim_id)
+
+
+def run_cost(conn: Connection, run_id: str) -> float:
+    """Return the model cost of every call in a run, failed attempts included."""
+    query = select(func.coalesce(func.sum(model_calls.c.cost), 0.0)).where(
+        model_calls.c.run_id == run_id
+    )
+    return conn.execute(query).scalar_one()
+
+
+def per_claim(conn: Connection, run_id: str) -> dict[str, tuple[float, float]]:
+    """Return each claim's model cost and working seconds in a run."""
+    costs = select(model_calls.c.claim_id, func.sum(model_calls.c.cost)).where(
+        model_calls.c.run_id == run_id
+    )
+    times = select(work_times.c.claim_id, func.sum(work_times.c.seconds)).where(
+        work_times.c.run_id == run_id
+    )
+    cost = {c: t for c, t in conn.execute(costs.group_by(model_calls.c.claim_id))}
+    time = {c: t for c, t in conn.execute(times.group_by(work_times.c.claim_id))}
+    return {c: (cost.get(c, 0.0), time.get(c, 0.0)) for c in cost.keys() | time.keys()}

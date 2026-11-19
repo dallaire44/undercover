@@ -9,7 +9,8 @@ State = Literal[
 ]
 Verdict = Literal["approve", "decline", "refer"]
 RunState = Literal["running", "finished", "stopped"]
-TodoState = Literal["to_do", "in_progress", "done", "left_for_handler"]
+RunKind = Literal["dispatch", "evaluation"]
+ClaimSet = Literal["queue", "evaluation", "held_out"]
 Benefit = Literal[
     "trip_cancellation",
     "trip_interruption",
@@ -174,41 +175,63 @@ class WorkTime(WorkTimeRequest):
     claim_id: str
 
 
-class RunRequest(BaseModel):
-    cap: int = Field(ge=1)
-
-
-class Todo(BaseModel):
-    content: str
-    status: TodoState
-
-
-class TodoList(BaseModel):
-    todos: list[Todo]
-
-
 class ReturnRequest(BaseModel):
     thread_id: str
     reason: str
-
-
-class FinishRequest(BaseModel):
-    summary: str
 
 
 class StopRequest(BaseModel):
     reason: str
 
 
+class DispatchStart(BaseModel):
+    agents: int = Field(ge=1, le=25, description="How many claim agents work at once")
+
+
+class DispatchRequest(DispatchStart):
+    model: str
+    reasoning_effort: str
+
+
+class RunClaim(ClaimSummary):
+    cost: float = Field(description="The model cost of the claim's work in this run")
+    seconds: float = Field(
+        description="The time the agent worked the claim in this run"
+    )
+
+
+class HeldPayout(BaseModel):
+    claim_id: str
+    payout: float
+
+
+class RunSummary(BaseModel):
+    approved: int
+    declined: int
+    referred: int
+    awaiting_sign_off: list[HeldPayout]
+    needs_handler: list[str]
+    in_progress: list[str]
+
+
 class Run(BaseModel):
     run_id: str
-    cap: int
+    kind: RunKind
+    agents: int
+    claim_set: ClaimSet
+    tiny: bool
+    model: str
+    reasoning_effort: str
     status: RunState
-    summary: str
+    reason: str | None
     started_at: str
     finished_at: str | None
-    claim_ids: list[str]
-    todos: list[Todo]
+    claims: list[RunClaim]
+    summary: RunSummary
+    cost: float
+    seconds: float = Field(
+        description="From the start of the run to its finish, or now"
+    )
 
 
 class PayoutLine(BaseModel):

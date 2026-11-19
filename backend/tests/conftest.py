@@ -1,3 +1,5 @@
+from typing import Any
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -8,13 +10,8 @@ from backend.main import app
 @pytest.fixture(autouse=True)
 def agent_calls(monkeypatch):
     """Record what the backend asks of the agent's service, which no test reaches."""
-    calls: list[str] = []
-
-    def ask(path):
-        calls.append(path)
-        return True
-
-    monkeypatch.setattr(agent_service, "ask", ask)
+    calls: list[tuple[str, Any]] = []
+    monkeypatch.setattr(agent_service, "post", lambda *call: calls.append(call))
     return calls
 
 

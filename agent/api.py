@@ -76,7 +76,7 @@ def read_section(document: str, number: str) -> str:
     return send("GET", f"/api/documents/{document}/sections/{number}").text
 
 
-def get_instructions(agent: Literal["queue", "claim"]) -> str:
+def get_instructions(agent: Literal["claim"]) -> str:
     return send("GET", f"/api/instructions/{agent}").text
 
 
@@ -106,16 +106,21 @@ def record_work_time(
     send("POST", f"/api/claims/{claim_id}/work-times", json=body)
 
 
-def start_run(cap: int) -> Json:
-    return send("POST", "/api/runs", json={"cap": cap}).json()
+def start_agent(claim_id: str) -> None:
+    send("POST", f"/api/claims/{claim_id}/agent")
 
 
-def start_agent(claim_id: str) -> Json:
-    return send("POST", f"/api/claims/{claim_id}/agent").json()
+def create_dispatch(agents: int, model: str, reasoning_effort: str) -> Json:
+    body = {"agents": agents, "model": model, "reasoning_effort": reasoning_effort}
+    return send("POST", "/api/dispatches", json=body).json()
 
 
 def get_latest_run() -> Json | None:
     return send("GET", "/api/runs/latest").json()
+
+
+def get_latest_dispatch() -> Json | None:
+    return send("GET", "/api/dispatches/latest").json()
 
 
 def get_run(run_id: str) -> Json:
@@ -135,13 +140,8 @@ def return_claim(claim_id: str, thread_id: str, reason: str) -> Json:
     return send("POST", f"/api/claims/{claim_id}/return", json=body).json()
 
 
-def write_todos(run_id: str, todos: list[Json]) -> None:
-    send("PUT", f"/api/runs/{run_id}/todos", json={"todos": todos})
-
-
-def finish_run(run_id: str, summary: str) -> Json:
-    path = f"/api/runs/{run_id}/finish"
-    return send("POST", path, json={"summary": summary}).json()
+def finish_run(run_id: str) -> Json:
+    return send("POST", f"/api/runs/{run_id}/finish").json()
 
 
 def stop_run(run_id: str, reason: str) -> Json:

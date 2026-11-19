@@ -1,4 +1,4 @@
-"""Run the agent: `uv run -m agent --cap 5`, or `uv run -m agent --claim CLM-1001`."""
+"""Work one claim: `uv run -m agent CLM-1001`."""
 
 from agent import cli
 

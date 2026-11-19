@@ -1,17 +1,20 @@
+import random
+import re
+from collections.abc import Iterator
 from contextlib import nullcontext
-from typing import cast
+from typing import Any, cast
 
 import pytest
 from fastapi.testclient import TestClient
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
-from langchain_core.messages import AIMessage
+from langchain_core.messages import AIMessage, ToolMessage
 
-from agent import api, harness
+from agent import api, dispatcher, harness
 from agent import service as agent_service_app
 from backend import agent_service, db
 from backend.main import app
 
-REAL_ASK = agent_service.ask
+REAL_POST = agent_service.post
 
 
 class StubModel(GenericFakeChatModel):
@@ -38,28 +41,23 @@ class StubModel(GenericFakeChatModel):
 def fresh_checkpoints(monkeypatch):
     """A fresh in-memory checkpointer for each test, since run ids repeat."""
     monkeypatch.delenv("DATABASE_URL", raising=False)
-    harness.checkpointer.cache_clear()
+    harness.memory.cache_clear()
     yield
-    harness.checkpointer.cache_clear()
+    harness.memory.cache_clear()
 
 
 @pytest.fixture(autouse=True)
 def agent_calls(monkeypatch):
     """Record what the backend asks of the agent's service, without doing it."""
-    calls: list[str] = []
-
-    def ask(path):
-        calls.append(path)
-        return True
-
-    monkeypatch.setattr(agent_service, "ask", ask)
+    calls: list[tuple[str, Any]] = []
+    monkeypatch.setattr(agent_service, "post", lambda *call: calls.append(call))
     return calls
 
 
 @pytest.fixture
 def service(monkeypatch):
     """Send the backend's calls to the agent's service, run in this process."""
-    monkeypatch.setattr(agent_service, "ask", REAL_ASK)
+    monkeypatch.setattr(agent_service, "post", REAL_POST)
     monkeypatch.setattr(
         agent_service,
         "agent",
@@ -123,3 +121,72 @@ def decide(client, claim_id, decision="decline", payout=0.0):
         "policy_section": "5. Baggage and Personal Effects",
     }
     client.post(f"/api/claims/{claim_id}/decision", json=body)
+
+
+def dispatch_id(client, agents=3):
+    """Create a dispatch, as the agent's service does, and return its id."""
+    body = {"agents": agents, "model": "stub", "reasoning_effort": "none"}
+    return client.post("/api/dispatches", json=body).json()["run_id"]
+
+
+def all_but(client, *claim_ids):
+    """The queue's claims other than these, for a dispatch to skip."""
+    every = {c["claim_id"] for c in client.get("/api/claims").json()}
+    return every - set(claim_ids)
+
+
+class Script:
+    """What the stub claim agents do: each claim's decision, and errors to raise.
+
+    `errors` gives a claim's model calls in order: an error to raise, or None to
+    reply as usual. `calls` keeps each call's claim id and messages.
+    """
+
+    def __init__(self) -> None:
+        self.decisions: dict[str, tuple[str, float]] = {}
+        self.errors: dict[str, list[BaseException | None]] = {}
+        self.calls: list[tuple[str, list]] = []
+
+
+class Decider(StubModel):
+    """A stub claim agent: reads the claim and the contents, then decides it."""
+
+    script: Script
+    messages: Iterator = iter(())
+
+    def reply(self, claim_id: str, messages: list) -> AIMessage:
+        done = [m.name for m in messages if isinstance(m, ToolMessage)]
+        if not done:
+            return call("get_claim", claim_id=claim_id)
+        if done[-1] == "get_claim":
+            return call("list_sections")
+        decision, payout = self.script.decisions.get(claim_id, ("decline", 0.0))
+        return call(
+            "record_decision",
+            claim_id=claim_id,
+            decision=decision,
+            payout=payout,
+            reason="The wording settles it.",
+            policy_section="5. Baggage and Personal Effects",
+        )
+
+    def _generate(self, messages, *args, **kwargs):
+        found = re.search(r"Decide claim (\S+)\.", messages[1].text)
+        claim_id = cast(re.Match, found).group(1)
+        self.script.calls.append((claim_id, list(messages)))
+        planned = self.script.errors.get(claim_id)
+        if planned and (error := planned.pop(0)):
+            raise error
+        self.messages = iter([self.reply(claim_id, messages)])
+        return super()._generate(messages, *args, **kwargs)
+
+
+@pytest.fixture
+def script(monkeypatch):
+    """Stub claim agents for every claim a dispatch works, with no waits to retry."""
+    found = Script()
+    monkeypatch.setattr(harness, "model", lambda: Decider(script=found))
+    monkeypatch.setattr(harness, "RETRY_DELAY_SECONDS", 0.0)
+    monkeypatch.setattr(dispatcher, "FIRST_WAIT_SECONDS", 0.0)
+    monkeypatch.setattr(random, "uniform", lambda a, b: 0.0)
+    return found

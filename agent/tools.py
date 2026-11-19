@@ -1,22 +1,15 @@
-"""The agents' tools: the claim agent's, then the queue agent's.
+"""The claim agent's tools, each one backend call.
 
 A refused backend call raises `api.Refused`, which the harness hands back to the model.
-`work_claim` runs a claim agent, so this module and the harness import each other.
 """
 
 import json
-from dataclasses import dataclass
 from typing import Literal
 
-from langchain.tools import ToolRuntime, tool
+from langchain.tools import tool
 from pydantic import BaseModel, Field
 
-from agent import api, harness
-
-
-@dataclass
-class RunContext:
-    run_id: str
+from agent import api
 
 
 class Line(BaseModel):
@@ -50,11 +43,6 @@ class Line(BaseModel):
     hours: float = Field(
         ge=0, description="For meals without receipts, the delay in hours, else 0"
     )
-
-
-class TodoItem(BaseModel):
-    content: str
-    status: Literal["to_do", "in_progress", "done", "left_for_handler"]
 
 
 @tool
@@ -156,51 +144,3 @@ CLAIM_TOOLS = [
     calculate_payout,
     record_decision,
 ]
-
-
-def line(found: api.Json) -> str:
-    """Describe a claim to work in one line."""
-    return (
-        f"{found['claim_id']}: {found['claim_type'].replace('_', ' ')}, "
-        f"${found['amount_claimed']:,.2f}, submitted {found['submitted_on']}, "
-        f"{found['attempts']} earlier attempts. {found['summary']}"
-    )
-
-
-@tool
-def list_claims_to_work(runtime: ToolRuntime[RunContext]) -> str:
-    """List the waiting claims this run may still work."""
-    run_id = runtime.context.run_id
-    found = api.list_claims_to_work(run_id)
-    if not found:
-        return "No claims left to work."
-    run = api.get_run(run_id)
-    room = run["cap"] - len(run["claim_ids"])
-    header = (
-        f"The run's cap is {run['cap']} claims. It has taken {len(run['claim_ids'])}, "
-        f"so it can take {room} more, plus any of its own back in the queue."
-    )
-    return "\n".join([header, *(line(c) for c in found)])
-
-
-@tool
-def write_todos(todos: list[TodoItem], runtime: ToolRuntime[RunContext]) -> str:
-    """Replace your to-do list. Send the whole list, in order, every time."""
-    api.write_todos(runtime.context.run_id, [todo.model_dump() for todo in todos])
-    return "To-do list saved."
-
-
-@tool
-def work_claim(claim_id: str, runtime: ToolRuntime[RunContext]) -> str:
-    """Work one claim with a fresh claim agent. Returns the outcome in one line."""
-    return harness.work_claim(runtime.context.run_id, claim_id)
-
-
-@tool
-def finish_run(summary: str, runtime: ToolRuntime[RunContext]) -> str:
-    """Finish the run with your summary for the handlers."""
-    api.finish_run(runtime.context.run_id, summary)
-    return "Run finished."
-
-
-QUEUE_TOOLS = [list_claims_to_work, write_todos, work_claim, finish_run]

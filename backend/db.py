@@ -16,6 +16,7 @@ from typing import Any
 from sqlalchemy import (
     JSON,
     URL,
+    Boolean,
     Column,
     Connection,
     Engine,
@@ -102,9 +103,14 @@ runs = Table(
     "runs",
     metadata,
     Column("run_id", String, primary_key=True),
-    Column("cap", Integer, nullable=False),
+    Column("kind", String, nullable=False),
+    Column("agents", Integer, nullable=False),
+    Column("claim_set", String, nullable=False),
+    Column("tiny", Boolean, nullable=False),
+    Column("model", String, nullable=False),
+    Column("reasoning_effort", String, nullable=False),
     Column("status", String, nullable=False),
-    Column("summary", Text, nullable=False),
+    Column("reason", Text),
     Column("started_at", String, nullable=False),
     Column("finished_at", String),
 )
@@ -128,15 +134,6 @@ work_times = Table(
     Column("started_at", String, nullable=False),
     Column("seconds", Float, nullable=False),
 )
-todos = Table(
-    "todos",
-    metadata,
-    Column("run_id", String, primary_key=True),
-    Column("position", Integer, primary_key=True),
-    Column("content", Text, nullable=False),
-    Column("status", String, nullable=False),
-)
-
 DOCUMENTS = {
     "claims": claims,
     "policies": policies,

@@ -1,4 +1,4 @@
-"""Start a run through the API and follow it until it ends."""
+"""Work one claim from the command line, through the API, and follow it to the end."""
 
 import argparse
 import time
@@ -8,40 +8,68 @@ from agent import api
 POLL_SECONDS = 2.0
 
 
-def parse(argv: list[str] | None = None) -> argparse.Namespace:
-    """Read `--cap 5` or `--claim CLM-1001` from the command line."""
+def parse(argv: list[str] | None = None) -> str:
+    """Read the claim id, such as CLM-1001, from the command line."""
     parser = argparse.ArgumentParser(
-        prog="uv run -m agent", description="Start a run of the agent and follow it."
+        prog="uv run -m agent", description="Work one waiting claim and follow it."
     )
-    target = parser.add_mutually_exclusive_group(required=True)
-    target.add_argument("--cap", type=int, help="work up to this many waiting claims")
-    target.add_argument("--claim", help="work one waiting claim, such as CLM-1001")
-    return parser.parse_args(argv)
+    parser.add_argument("claim_id", help="a waiting claim, such as CLM-1001")
+    return parser.parse_args(argv).claim_id
 
 
-def start(args: argparse.Namespace) -> str:
-    """Start the run, and return its id. A refusal ends the program with its reason."""
+def latest_id() -> str | None:
+    """Return the id of the latest dispatch, or None before the first."""
+    latest = api.get_latest_dispatch()
+    return latest["run_id"] if latest else None
+
+
+def start(claim_id: str) -> str:
+    """Start a dispatch on the claim and return its id once the service creates it.
+
+    A refusal ends the program with its reason.
+    """
+    before = latest_id()
     try:
-        run = api.start_agent(args.claim) if args.claim else api.start_run(args.cap)
+        api.start_agent(claim_id)
     except api.Refused as refusal:
         raise SystemExit(f"Refused: {refusal.detail}") from refusal
-    return run["run_id"]
+    while (run_id := latest_id()) == before:
+        time.sleep(POLL_SECONDS)
+    return str(run_id)
+
+
+def ending(run: api.Json) -> str:
+    """Describe how a run ended, from its summary."""
+    summary = run["summary"]
+    lines = [
+        f"{run['run_id']} {run['status']}"
+        + (f": {run['reason']}" if run["reason"] else "."),
+        f"Approved {summary['approved']}, declined {summary['declined']}, "
+        f"referred {summary['referred']}.",
+    ]
+    lines += [
+        f"Waiting for sign-off: {held['claim_id']}, ${held['payout']:,.2f}"
+        for held in summary["awaiting_sign_off"]
+    ]
+    lines += [f"Left for a handler: {c}" for c in summary["needs_handler"]]
+    lines += [f"Still in progress: {c}" for c in summary["in_progress"]]
+    return "\n".join(lines)
 
 
 def follow(run_id: str) -> str:
-    """Print the run's to-do list as it changes, then return how the run ended."""
-    shown = ""
+    """Print each change to the run's claims, then return how the run ended."""
+    shown: dict[str, str] = {}
     while True:
         run = api.get_run(run_id)
-        todos = "\n".join(f"[{t['status']}] {t['content']}" for t in run["todos"])
-        if todos != shown:
-            print(todos + "\n")
-            shown = todos
+        for claim in run["claims"]:
+            if shown.get(claim["claim_id"]) != claim["status"]:
+                shown[claim["claim_id"]] = claim["status"]
+                print(f"{claim['claim_id']}: {claim['status'].replace('_', ' ')}")
         if run["status"] != "running":
-            return f"{run_id} {run['status']}: {run['summary']}"
+            return ending(run)
         time.sleep(POLL_SECONDS)
 
 
 def main(argv: list[str] | None = None) -> None:
-    """Start a run from the command line and follow it to the end."""
+    """Work one claim from the command line and follow it to the end."""
     print(follow(start(parse(argv))))

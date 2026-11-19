@@ -2,7 +2,7 @@ import pytest
 from langchain_core.messages import AIMessage, ToolMessage
 
 from agent import harness
-from agent.tests.conftest import Recorder, StopsOnce, call, stub
+from agent.tests.conftest import Recorder, StopsOnce, call, dispatch_id, stub
 
 READS = [
     call("get_claim", claim_id="CLM-1001"),
@@ -32,8 +32,8 @@ class Broken(Recorder):
 
 @pytest.fixture
 def run_id(client):
-    """A running run of two claims, which no agent works until a test does."""
-    return client.post("/api/runs", json={"cap": 2}).json()["run_id"]
+    """A running dispatch, which no agent works until a test does."""
+    return dispatch_id(client)
 
 
 def claim(client, claim_id):
@@ -95,7 +95,7 @@ def test_a_claim_stopped_partway_carries_on_from_its_last_step(
     stopped = claim(client, "CLM-1001")
     assert stopped["status"] == "in_progress"
 
-    harness.carry_on()
+    harness.work_claim(run_id, "CLM-1001")
     record = claim(client, "CLM-1001")
     assert record["status"] == "decided"
     assert record["thread_id"] == stopped["thread_id"]
@@ -112,17 +112,17 @@ def test_a_claim_stopped_partway_carries_on_from_its_last_step(
 
 def test_a_claim_that_fails_with_an_error_starts_afresh(client, run_id, monkeypatch):
     second = Recorder(messages=iter([AIMessage(content="Not sure.")]))
+    second.seen.clear()
     models = iter([Broken(messages=iter([])), second])
     monkeypatch.setattr(harness, "model", lambda: next(models))
     line = harness.work_claim(run_id, "CLM-1001")
-    assert line.startswith("CLM-1001: failed, back in the queue to try again.")
+    assert line.startswith("CLM-1001: failed twice, left for a handler.")
     returned = claim(client, "CLM-1001")
-    assert (returned["status"], returned["attempts"]) == ("waiting", 1)
-    assert returned["thread_id"] is None
-
-    harness.work_claim(run_id, "CLM-1001")
+    assert (returned["status"], returned["attempts"]) == ("needs_handler", 2)
     first = second.seen[0]
     assert [m.text for m in first[1:]] == ["Decide claim CLM-1001."]
+    trail = client.get("/api/claims/CLM-1001/steps").json()
+    assert len({s["thread_id"] for s in trail}) == 2
 
 
 def test_a_repeated_decision_counts_as_done(client):
@@ -149,39 +149,3 @@ def test_a_refused_call_goes_back_to_the_model_as_text(client):
     assert isinstance(refusal, ToolMessage)
     assert refusal.text == "Refused (404): CLM-9999 not found"
     assert claim(client, "CLM-1001")["decision"] is None
-
-
-def test_a_stopped_queue_run_is_finished_by_the_next_run(client, run_id, monkeypatch):
-    claim_model = StopsOnce(stop_at=0, messages=iter([approve("CLM-1001", 420.0)]))
-    monkeypatch.setattr(harness, "model", lambda: claim_model)
-    with pytest.raises(KeyboardInterrupt):
-        harness.run_queue(run_id, stub(call("work_claim", claim_id="CLM-1001")))
-    assert claim(client, "CLM-1001")["status"] == "in_progress"
-
-    harness.carry_on()
-    queue = Recorder(
-        messages=iter(
-            [
-                call("work_claim", claim_id="CLM-1002"),
-                call("finish_run", summary="Two claims worked."),
-                AIMessage(content="Finished."),
-            ]
-        )
-    )
-    decline = call(
-        "record_decision",
-        claim_id="CLM-1002",
-        decision="decline",
-        payout=0.0,
-        reason="Excluded.",
-        policy_section="9. General exclusions",
-    )
-    monkeypatch.setattr(harness, "model", lambda: stub(decline))
-    harness.run_queue(run_id, queue)
-    reported = queue.seen[0][-1]
-    assert isinstance(reported, ToolMessage)
-    assert reported.text == "CLM-1001: approved, $420.00 paid"
-    run = client.get(f"/api/runs/{run_id}").json()
-    assert run["status"] == "finished"
-    assert run["claim_ids"] == ["CLM-1001", "CLM-1002"]
-    assert steps(client, "CLM-1001").count("Agent started") == 1

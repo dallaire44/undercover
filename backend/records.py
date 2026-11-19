@@ -2,7 +2,7 @@
 
 from typing import Any
 
-from sqlalchemy import Connection, RowMapping, Table, select
+from sqlalchemy import ColumnElement, Connection, RowMapping, Table, select
 
 from backend import db
 from backend.db import claims, customers, decisions
@@ -65,9 +65,9 @@ def status(conn: Connection, claim_id: str) -> State:
     return claim_row(conn, claim_id)["status"]
 
 
-def summaries(conn: Connection, claim_id: str | None) -> list[ClaimSummary]:
-    """Return the claims as they show in the queue: all of them, or just one."""
-    query = CLAIMS if claim_id is None else CLAIMS.where(claims.c.claim_id == claim_id)
+def summaries(conn: Connection, *where: ColumnElement[bool]) -> list[ClaimSummary]:
+    """Return the claims that match, as they show in the queue."""
+    query = CLAIMS.where(*where)
     return [
         ClaimSummary(
             **{**row["doc"], "status": row["status"]},
@@ -84,12 +84,17 @@ def summaries(conn: Connection, claim_id: str | None) -> list[ClaimSummary]:
 
 def list_claims(conn: Connection) -> list[ClaimSummary]:
     """Return every claim in the queue, with its decision and payout if any."""
-    return summaries(conn, None)
+    return summaries(conn)
+
+
+def in_run(conn: Connection, run_id: str) -> list[ClaimSummary]:
+    """Return the claims a run has worked, as they show in the queue."""
+    return summaries(conn, claims.c.run_id == run_id)
 
 
 def summary(conn: Connection, claim_id: str) -> ClaimSummary:
     """Return one claim, known to exist, as it shows in the queue."""
-    (found,) = summaries(conn, claim_id)
+    (found,) = summaries(conn, claims.c.claim_id == claim_id)
     return found
 
 

@@ -1,28 +1,50 @@
-"""Runs of the agent over the queue: the cap, the to-do list and failed attempts."""
+"""Runs: dispatches of the queue, the claims they work, and failed attempts."""
 
 import uuid
+from collections import Counter
+from datetime import UTC, datetime
+from typing import Any
 
-from sqlalchemy import Connection, RowMapping, delete, func, insert, select, update
+from sqlalchemy import Connection, RowMapping, func, insert, select, update
 
-from backend import db, records, steps
-from backend.db import claims, runs, todos
+from backend import db, records, steps, usage
+from backend.db import claims, runs
 from backend.errors import NotFound, Refused
-from backend.models import ClaimSummary, Run, RunState, State, StepRequest, Todo
+from backend.models import (
+    ClaimSummary,
+    DispatchRequest,
+    HeldPayout,
+    Run,
+    RunClaim,
+    RunKind,
+    RunState,
+    RunSummary,
+    State,
+    StepRequest,
+)
 
 MAX_ATTEMPTS = 2
+BUSY = "A dispatch or evaluation is already running"
 
 
-def start(conn: Connection, cap: int) -> Run:
-    """Start a run capped at `cap` claims, unless one is already running."""
-    if conn.execute(select(runs).where(runs.c.status == "running")).first():
-        raise Refused("A run is already running")
+def create(conn: Connection, values: dict[str, Any]) -> str:
+    """Add a running run, unless one is already running, and return its id."""
+    if conn.execute(select(runs.c.run_id).where(runs.c.status == "running")).first():
+        raise Refused(BUSY)
     count = conn.execute(select(func.count()).select_from(runs)).scalar_one()
     run_id = f"RUN-{count + 1:04d}"
     conn.execute(
         insert(runs).values(
-            run_id=run_id, cap=cap, status="running", summary="", started_at=db.now()
+            run_id=run_id, status="running", started_at=db.now(), **values
         )
     )
+    return run_id
+
+
+def create_dispatch(conn: Connection, request: DispatchRequest) -> Run:
+    """Create a dispatch of the queue with N claim agents at once."""
+    values = {"kind": "dispatch", "claim_set": "queue", "tiny": False}
+    run_id = create(conn, {**values, **request.model_dump()})
     conn.commit()
     return get(conn, run_id)
 
@@ -44,55 +66,85 @@ def running(conn: Connection, run_id: str) -> RowMapping:
     return found
 
 
-def claim_ids(conn: Connection, run_id: str, state: State | None = None) -> list[str]:
-    """Return the ids of the run's claims, optionally only those in one state."""
-    query = select(claims.c.claim_id).where(claims.c.run_id == run_id)
-    if state:
-        query = query.where(claims.c.status == state)
-    return list(conn.scalars(query.order_by(claims.c.claim_id)))
+def summarize(worked: list[ClaimSummary]) -> RunSummary:
+    """Sum up a run's claims from the records, with no model."""
+    decided = Counter(c.decision for c in worked)
+    return RunSummary(
+        approved=decided["approve"],
+        declined=decided["decline"],
+        referred=decided["refer"],
+        awaiting_sign_off=[
+            HeldPayout(claim_id=c.claim_id, payout=c.payout or 0.0)
+            for c in worked
+            if c.status == "awaiting_sign_off"
+        ],
+        needs_handler=[c.claim_id for c in worked if c.status == "needs_handler"],
+        in_progress=[c.claim_id for c in worked if c.status == "in_progress"],
+    )
+
+
+def seconds_since(started_at: str, finished_at: str | None) -> float:
+    """Return the seconds from a run's start to its finish, or to now."""
+    end = datetime.fromisoformat(finished_at) if finished_at else datetime.now(UTC)
+    return (end - datetime.fromisoformat(started_at)).total_seconds()
+
+
+def with_usage(claim: ClaimSummary, used: dict[str, tuple[float, float]]) -> RunClaim:
+    """Add a claim's model cost and working time in the run."""
+    cost, seconds = used.get(claim.claim_id, (0.0, 0.0))
+    return RunClaim(**claim.model_dump(), cost=cost, seconds=seconds)
 
 
 def get(conn: Connection, run_id: str) -> Run:
-    """Return a run with its claims and its to-do list."""
-    query = (
-        select(todos.c.content, todos.c.status)
-        .where(todos.c.run_id == run_id)
-        .order_by(todos.c.position)
-    )
+    """Return a run with its claims, its summary, its model cost and its time."""
+    found = row(conn, run_id)
+    worked = records.in_run(conn, run_id)
+    used = usage.per_claim(conn, run_id)
     return Run(
-        **row(conn, run_id),
-        claim_ids=claim_ids(conn, run_id),
-        todos=[Todo(**todo) for todo in conn.execute(query).mappings()],
+        **found,
+        claims=[with_usage(c, used) for c in worked],
+        summary=summarize(worked),
+        cost=usage.run_cost(conn, run_id),
+        seconds=seconds_since(found["started_at"], found["finished_at"]),
     )
 
 
-def latest(conn: Connection) -> Run | None:
-    """Return the latest run, or None before the first."""
-    query = select(runs.c.run_id).order_by(runs.c.run_id.desc()).limit(1)
-    found = conn.scalar(query)
+def latest(conn: Connection, *kinds: RunKind) -> Run | None:
+    """Return the latest run of the kinds given, or None before the first."""
+    query = select(runs.c.run_id).where(runs.c.kind.in_(kinds))
+    found = conn.scalar(query.order_by(runs.c.run_id.desc()).limit(1))
     return get(conn, found) if found else None
 
 
 def claims_to_work(conn: Connection, run_id: str) -> list[ClaimSummary]:
-    """Return the waiting claims the run may work: its own, and others under its cap."""
-    query = select(claims.c.claim_id).where(claims.c.status == "waiting")
-    if len(claim_ids(conn, run_id)) >= row(conn, run_id)["cap"]:
-        query = query.where(claims.c.run_id == run_id)
-    ids = set(conn.scalars(query))
-    return [c for c in records.list_claims(conn) if c.claim_id in ids]
+    """Return the claims a run still has to work: in progress first, then waiting.
+
+    Each group is oldest submitted first.
+    """
+    row(conn, run_id)
+    left = [
+        c for c in records.list_claims(conn) if c.status in ("in_progress", "waiting")
+    ]
+    return sorted(
+        left, key=lambda c: (c.status != "in_progress", c.submitted_on, c.claim_id)
+    )
 
 
 def take_claim(conn: Connection, run_id: str, claim_id: str) -> ClaimSummary:
-    """Move a waiting claim into the run and in progress, within the run's cap."""
-    run = running(conn, run_id)
-    if records.status(conn, claim_id) != "waiting":
-        raise Refused(f"{claim_id} is not waiting")
-    if claim_id not in {c.claim_id for c in claims_to_work(conn, run_id)}:
-        raise Refused(f"The run's cap of {run['cap']} claims is reached")
+    """Move a claim into the run, in progress.
+
+    A waiting claim gets a new thread. One in progress keeps its thread, so it
+    carries on from its last step as the same attempt.
+    """
+    running(conn, run_id)
+    found = {c.claim_id: c for c in claims_to_work(conn, run_id)}.get(claim_id)
+    if found is None:
+        raise Refused(f"{claim_id} is not a claim this run can work")
+    thread_id = found.thread_id or str(uuid.uuid4())
     conn.execute(
         update(claims)
         .where(claims.c.claim_id == claim_id)
-        .values(status="in_progress", run_id=run_id, thread_id=str(uuid.uuid4()))
+        .values(status="in_progress", run_id=run_id, thread_id=thread_id)
     )
     conn.commit()
     return records.summary(conn, claim_id)
@@ -125,45 +177,32 @@ def return_claim(
     return records.summary(conn, claim_id)
 
 
-def write_todos(conn: Connection, run_id: str, items: list[Todo]) -> list[Todo]:
-    """Replace the run's to-do list."""
-    running(conn, run_id)
-    conn.execute(delete(todos).where(todos.c.run_id == run_id))
-    if items:
-        rows = [
-            {"run_id": run_id, "position": i, **todo.model_dump()}
-            for i, todo in enumerate(items)
-        ]
-        conn.execute(insert(todos), rows)
-    conn.commit()
-    return items
-
-
-def close(conn: Connection, run_id: str, state: RunState, summary: str) -> Run:
-    """Mark the run finished or stopped, with its summary."""
+def close(conn: Connection, run_id: str, state: RunState, reason: str | None) -> Run:
+    """Mark the run finished, or stopped with its reason."""
     conn.execute(
         update(runs)
         .where(runs.c.run_id == run_id)
-        .values(status=state, summary=summary, finished_at=db.now())
+        .values(status=state, reason=reason, finished_at=db.now())
     )
     conn.commit()
     return get(conn, run_id)
 
 
-def finish(conn: Connection, run_id: str, summary: str) -> Run:
-    """Finish the run, unless a claim is in progress or still to work."""
+def ids_in(conn: Connection, run_id: str, state: State) -> list[str]:
+    """Return the ids of the run's claims in one state."""
+    return [c.claim_id for c in records.in_run(conn, run_id) if c.status == state]
+
+
+def finish(conn: Connection, run_id: str) -> Run:
+    """Finish the run, unless one of its claims is still waiting to be worked."""
     running(conn, run_id)
-    working = claim_ids(conn, run_id, "in_progress")
-    if working:
-        raise Refused(f"Still in progress: {', '.join(working)}")
-    missed = [c.claim_id for c in claims_to_work(conn, run_id)]
-    if missed:
-        raise Refused(f"Still to work within the cap: {', '.join(missed)}")
-    return close(conn, run_id, "finished", summary)
+    waiting = ids_in(conn, run_id, "waiting")
+    if waiting:
+        raise Refused(f"Still waiting: {', '.join(waiting)}")
+    return close(conn, run_id, "finished", None)
 
 
 def stop(conn: Connection, run_id: str, reason: str) -> Run:
-    """Stop the run, returning each claim it had in progress."""
-    for claim_id in claim_ids(conn, run_id, "in_progress"):
-        return_claim(conn, claim_id, thread_id=run_id, reason=reason)
+    """Stop the run, leaving its claims as they are for the next dispatch."""
+    running(conn, run_id)
     return close(conn, run_id, "stopped", reason)

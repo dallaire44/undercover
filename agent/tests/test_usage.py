@@ -6,7 +6,7 @@ from langchain_core.messages import AIMessage
 from sqlalchemy import select
 
 from agent import harness
-from agent.tests.conftest import Recorder, call, stub
+from agent.tests.conftest import Recorder, call, dispatch_id, stub
 from backend import db
 
 
@@ -29,14 +29,17 @@ def rows(table, claim_id):
 
 @pytest.fixture
 def run_id(client):
-    return client.post("/api/runs", json={"cap": 2}).json()["run_id"]
+    return dispatch_id(client)
 
 
 def test_the_default_model_and_its_settings(monkeypatch):
     monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
     monkeypatch.delenv("MODEL_NAME", raising=False)
     assert harness.model_settings() == ("openai/gpt-6-luna", "low")
-    assert harness.model().reasoning_effort == "low"
+    assert (harness.model().model_name, harness.model().reasoning_effort) == (
+        "openai/gpt-6-luna",
+        "low",
+    )
     monkeypatch.setenv("MODEL_NAME", "openrouter/free")
     assert harness.model_settings() == ("openrouter/free", "none")
     assert harness.model().reasoning_effort is None

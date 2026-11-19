@@ -212,32 +212,40 @@ The dispatcher works the queue, driven from the agent's service as runs are toda
 
 Success criteria. Every test uses stub models and `InMemorySaver`:
 
-- [ ] **Never more than N at once:**
+- [x] **Never more than N at once:**
   1. A test patches `harness.work_claim` with a stand-in that sleeps 0.2 seconds and records how many are running.
   2. A dispatch of 10 claims at N=3 never has more than 3 running, and works all 10.
   3. At N=1, the claims are worked oldest submitted first.
-- [ ] **A dispatch works what is left:** with CLM-1003 in progress on a thread from an earlier, stopped run, a dispatch works it first, on the same thread with `attempts` unchanged, then the waiting claims. At the end the run is `finished` and no claim is `waiting`.
-- [ ] **A rate limit carries on as the same attempt:**
+- [x] **A dispatch works what is left:** with CLM-1003 in progress on a thread from an earlier, stopped run, a dispatch works it first, on the same thread with `attempts` unchanged, then the waiting claims. At the end the run is `finished` and no claim is `waiting`.
+- [x] **A rate limit carries on as the same attempt:**
   1. A stub raises `ModelRateLimitError` on its third model call, once.
   2. With the retry wait patched to 0, the claim is decided on its first thread, with `attempts` 0 and one decision.
   3. The stub's next call after the error sees the earlier tool results.
-- [ ] **Retries run out without stopping the dispatch:**
+- [x] **Retries run out without stopping the dispatch:**
   1. On a dispatch of three claims, a stub for CLM-1001 always raises `ModelTimeoutError`.
   2. CLM-1001 stays `in_progress` with its thread, `attempts` 0, and the line "still in progress".
   3. The other two claims are decided, and the run finishes with CLM-1001 under "still in progress" in its summary.
-- [ ] **A failure is tried once more in the same dispatch:** a stub that raises `RuntimeError` on CLM-1001's first attempt and decides on its second leaves CLM-1001 decided with `attempts` 1, on a second thread. One that fails twice leaves it `needs_handler`. The dispatch finishes either way.
-- [ ] **No claim decided or paid twice:** across the tests above, each claim has at most one row in `decisions` and in `payments`.
-- [ ] **The summary is built from the records:** after a stub dispatch of 4 claims (one approved and paid, one approved over the limit, one declined, one failing twice), `get_run` gives `approved: 2, declined: 1, referred: 0`, the held payout with its amount, the claim left for a handler, and nothing in progress.
-- [ ] **A claim being resumed is skipped:** a dispatch with CLM-1003 in the skip set never takes it.
-- [ ] **Langfuse:** with the keys set, `tracing("CLM-1001", "t1", "RUN-0002")` has `metadata.langfuse_tags == ["RUN-0002"]` and the session `CLM-1001 t1`. With no run, there are no tags.
-- [ ] **Its own saver per claim:** with `DATABASE_URL` set, two `saver()` calls give different `PostgresSaver`s on the same pool, built without connecting. Without it, both are the same `InMemorySaver`.
-- [ ] The service's `work_one` on a waiting claim creates a dispatch with N=1, works that claim alone and finishes the run with it.
-- [ ] `grep -rn "queue_middleware\|QUEUE_TOOLS\|write_todos\|todos" agent backend` finds nothing.
-- [ ] Code:
-  - [ ] the dispatcher is in `agent/dispatcher.py` and calls the harness only through `harness.work_claim`
-  - [ ] `test_structure.py` checks that `dispatcher.py` imports nothing from `agent.tools` and names no other harness function
-  - [ ] `langgraph.checkpoint` is still imported only in `agent/harness.py`
-- [ ] The pre-commit checks pass and the phase is committed.
+- [x] **A failure is tried once more in the same dispatch:** a stub that raises `RuntimeError` on CLM-1001's first attempt and decides on its second leaves CLM-1001 decided with `attempts` 1, on a second thread. One that fails twice leaves it `needs_handler`. The dispatch finishes either way.
+- [x] **No claim decided or paid twice:** across the tests above, each claim has at most one row in `decisions` and in `payments`.
+- [x] **The summary is built from the records:** after a stub dispatch of 4 claims (one approved and paid, one approved over the limit, one declined, one failing twice), `get_run` gives `approved: 2, declined: 1, referred: 0`, the held payout with its amount, the claim left for a handler, and nothing in progress.
+- [x] **A claim being resumed is skipped:** a dispatch with CLM-1003 in the skip set never takes it.
+- [x] **Langfuse:** with the keys set, `tracing("CLM-1001", "t1", "RUN-0002")` has `metadata.langfuse_tags == ["RUN-0002"]` and the session `CLM-1001 t1`. With no run, there are no tags.
+- [x] **Its own saver per claim:** with `DATABASE_URL` set, two `saver()` calls give different `PostgresSaver`s on the same pool, built without connecting. Without it, both are the same `InMemorySaver`.
+- [x] The service's `work_one` on a waiting claim creates a dispatch with N=1, works that claim alone and finishes the run with it.
+- [x] `grep -rn "queue_middleware\|QUEUE_TOOLS\|write_todos\|todos" agent backend` finds nothing.
+- [x] Code:
+  - [x] the dispatcher is in `agent/dispatcher.py` and calls the harness only through `harness.work_claim`
+  - [x] `test_structure.py` checks that `dispatcher.py` imports nothing from `agent.tools` and names no other harness function
+  - [x] `langgraph.checkpoint` is still imported only in `agent/harness.py`
+- [x] The pre-commit checks pass and the phase is committed.
+
+Changes while building Phase 2:
+
+- **LangGraph 1.2.23.** On 1.2.12, a node's `error_handler` ran for a node reached by `Send`, but the error was raised again and stopped the graph. 1.2.23 fixes this, so `langgraph>=1.2.23` is now a direct dependency (committed in Phase 1).
+- **The handler takes the claim alone.** LangGraph's types for `error_handler` don't include the `(state, error: NodeError)` form, so `left_in_progress` takes the task only. The error isn't needed: the dispatcher's lines aren't stored or shown.
+- **The run's tag goes through `propagate_attributes`.** A claim graph run inside the dispatcher's node has a parent run (checked with a callback), and Langfuse reads `langfuse_tags` in the metadata only at a trace's root. So `tracing` passes `tags=[run_id]` to `propagate_attributes`, beside the session, as the last build did for the session.
+- **The rate-limit test raises three times.** The claim graph's own `RetryPolicy` on the model node also retries rate limits (two retries), so the stub raises `ModelRateLimitError` on three calls in a row to reach the dispatcher's retry.
+- **Claims in progress come first.** `list_claims_to_work` gives the claims in progress first, then the waiting ones, each oldest submitted first.
 
 ## Phase 3: Starting a dispatch from the dashboard
 

@@ -16,7 +16,6 @@ from backend import (
     payouts,
     records,
     rules,
-    runner,
     runs,
     steps,
     usage,
@@ -27,7 +26,8 @@ from backend.models import (
     ClaimSummary,
     CustomerHistory,
     DecisionRequest,
-    FinishRequest,
+    DispatchRequest,
+    DispatchStart,
     Handler,
     ModelCall,
     ModelCallRequest,
@@ -37,14 +37,11 @@ from backend.models import (
     Policy,
     ReturnRequest,
     Run,
-    RunRequest,
     SignOff,
     SignOffRequest,
     Step,
     StepRequest,
     StopRequest,
-    Todo,
-    TodoList,
     WorkTime,
     WorkTimeRequest,
 )
@@ -147,8 +144,8 @@ def read_section(document: str, number: str) -> str:
     operation_id="get_instructions",
     response_class=PlainTextResponse,
 )
-def get_instructions(agent: Literal["queue", "claim"]) -> str:
-    """Get an agent's instructions as Markdown."""
+def get_instructions(agent: Literal["claim"]) -> str:
+    """Get the claim agent's instructions as Markdown."""
     return (HERE / "instructions" / f"{agent}.md").read_text(encoding="utf-8")
 
 
@@ -215,27 +212,53 @@ def sign_off(
     return signed
 
 
+@app.post("/api/dispatches/start", operation_id="start_dispatch", status_code=202)
+def start_dispatch(request: DispatchStart) -> None:
+    """Ask the agent to dispatch the queue with N claim agents at once."""
+    agent_service.start_dispatch(request.agents)
+
+
+@app.post("/api/claims/{claim_id}/agent", operation_id="start_agent", status_code=202)
+def start_agent(claim_id: str, conn: Connection = Db) -> None:
+    """Ask the agent to work one waiting claim, in a dispatch of its own."""
+    if records.status(conn, claim_id) != "waiting":
+        raise Refused(f"{claim_id} is not waiting")
+    agent_service.work_one(claim_id)
+
+
+@app.post("/api/dispatches", operation_id="create_dispatch")
+def create_dispatch(request: DispatchRequest, conn: Connection = Db) -> Run:
+    """Create a dispatch of the queue, unless a run is already running."""
+    return runs.create_dispatch(conn, request)
+
+
+@app.get("/api/dispatches/latest", operation_id="get_latest_dispatch")
+def get_latest_dispatch(conn: Connection = Db) -> Run | None:
+    """Get the latest dispatch with its claims and summary, or null before the first."""
+    return runs.latest(conn, "dispatch")
+
+
 @app.get("/api/runs/latest", operation_id="get_latest_run")
 def get_latest_run(conn: Connection = Db) -> Run | None:
-    """Get the latest run with its to-do list, or null before the first."""
-    return runs.latest(conn)
+    """Get the latest dispatch or evaluation, or null before the first."""
+    return runs.latest(conn, "dispatch", "evaluation")
 
 
 @app.get("/api/runs/{run_id}", operation_id="get_run")
 def get_run(run_id: str, conn: Connection = Db) -> Run:
-    """Get one run with its claims, to-do list and summary."""
+    """Get one run with its claims, summary, model cost and time."""
     return runs.get(conn, run_id)
 
 
 @app.get("/api/runs/{run_id}/claims-to-work", operation_id="list_claims_to_work")
 def list_claims_to_work(run_id: str, conn: Connection = Db) -> list[ClaimSummary]:
-    """List the waiting claims this run may still work."""
+    """List the claims this run still has to work, in progress first, oldest first."""
     return runs.claims_to_work(conn, run_id)
 
 
 @app.post("/api/runs/{run_id}/claims/{claim_id}", operation_id="take_claim")
 def take_claim(run_id: str, claim_id: str, conn: Connection = Db) -> ClaimSummary:
-    """Take a waiting claim into the run and start it, within the run's cap."""
+    """Take a claim into the run: a waiting one afresh, one in progress as it was."""
     return runs.take_claim(conn, run_id, claim_id)
 
 
@@ -247,34 +270,13 @@ def return_claim(
     return runs.return_claim(conn, claim_id, request.thread_id, request.reason)
 
 
-@app.put("/api/runs/{run_id}/todos", operation_id="write_todos")
-def write_todos(run_id: str, request: TodoList, conn: Connection = Db) -> list[Todo]:
-    """Replace the run's to-do list."""
-    return runs.write_todos(conn, run_id, request.todos)
-
-
 @app.post("/api/runs/{run_id}/finish", operation_id="finish_run")
-def finish_run(run_id: str, request: FinishRequest, conn: Connection = Db) -> Run:
-    """Finish the run with a summary, once no claim is left to work."""
-    return runs.finish(conn, run_id, request.summary)
+def finish_run(run_id: str, conn: Connection = Db) -> Run:
+    """Finish the run, once none of its claims is waiting."""
+    return runs.finish(conn, run_id)
 
 
 @app.post("/api/runs/{run_id}/stop", operation_id="stop_run")
 def stop_run(run_id: str, request: StopRequest, conn: Connection = Db) -> Run:
-    """Stop a run the agent could not finish, returning its claims in progress."""
-    runs.running(conn, run_id)
+    """Stop a run with a reason, leaving its claims for the next dispatch."""
     return runs.stop(conn, run_id, request.reason)
-
-
-@app.post("/api/runs", operation_id="start_run", status_code=202)
-def start_run(
-    request: RunRequest, tasks: BackgroundTasks, conn: Connection = Db
-) -> Run:
-    """Start a run of the agent on the queue, capped at a number of claims."""
-    return runner.start_run(conn, request.cap, tasks)
-
-
-@app.post("/api/claims/{claim_id}/agent", operation_id="start_agent", status_code=202)
-def start_agent(claim_id: str, tasks: BackgroundTasks, conn: Connection = Db) -> Run:
-    """Start a run of the agent on one waiting claim."""
-    return runner.start_one(conn, claim_id, tasks)

@@ -28,3 +28,10 @@ def test_only_the_harness_saves_checkpoints():
 def test_only_the_service_answers_in_http():
     for path in modules_except("service.py"):
         assert "fastapi" not in path.read_text(encoding="utf-8"), path.name
+
+
+def test_the_dispatcher_reaches_the_claim_agent_only_through_work_claim():
+    text = (AGENT / "dispatcher.py").read_text(encoding="utf-8")
+    assert "agent.tools" not in text
+    assert not re.search(r"from agent import .*\btools\b", text)
+    assert set(re.findall(r"harness\.(\w+)", text)) == {"work_claim"}

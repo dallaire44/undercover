@@ -94,16 +94,6 @@ def test_a_claim_that_loops_is_stopped(client):
     assert len(calls) == harness.CLAIM_MODEL_CALLS
 
 
-def test_model_name(monkeypatch):
-    monkeypatch.setenv("OPENROUTER_API_KEY", "test-key")
-    monkeypatch.delenv("MODEL_NAME", raising=False)
-    default = harness.model()
-    assert default.model_name == "openai/gpt-6-luna"
-    assert default.reasoning_effort == "low"
-    monkeypatch.setenv("MODEL_NAME", "openrouter/free")
-    assert harness.model().model_name == "openrouter/free"
-
-
 def test_blank_messages_are_not_steps():
     message = AIMessage(content="\n\n", tool_calls=[])
     assert harness.steps_of(message) == []
@@ -138,22 +128,43 @@ def test_the_payout_tool_works_out_the_payout(client):
 
 def test_no_tracing_without_langfuse_keys(monkeypatch):
     monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
-    with harness.tracing("CLM-1001", "t1") as config:
+    with harness.tracing("CLM-1001", "t1", "RUN-0002") as config:
         assert config == {}
 
 
-def test_each_attempt_is_one_langfuse_session(monkeypatch):
-    sessions = []
+def test_each_attempt_is_one_langfuse_session_tagged_with_its_run(monkeypatch):
+    traced = []
 
     @contextmanager
-    def propagate_attributes(session_id):
-        sessions.append(session_id)
+    def propagate_attributes(**attributes):
+        traced.append(attributes)
         yield
 
     monkeypatch.setattr(harness, "propagate_attributes", propagate_attributes)
     monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-test")
     monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-test")
-    with harness.tracing("CLM-1001", "t1") as config:
+    with harness.tracing("CLM-1001", "t1", "RUN-0002") as config:
         handlers = cast(list, config.get("callbacks"))
         assert [type(h) for h in handlers] == [harness.CallbackHandler]
-    assert sessions == ["CLM-1001 t1"]
+    with harness.tracing("CLM-1001", "t2", None):
+        pass
+    assert traced == [
+        {"session_id": "CLM-1001 t1", "tags": ["RUN-0002"]},
+        {"session_id": "CLM-1001 t2", "tags": None},
+    ]
+
+
+def test_each_claim_run_has_its_own_saver_on_one_pool(monkeypatch):
+    assert harness.saver() is harness.saver()
+    monkeypatch.setenv("DATABASE_URL", "postgresql://nobody@localhost:1/none")
+    harness.pool.cache_clear()
+    try:
+        first, second = harness.saver(), harness.saver()
+        assert isinstance(first, harness.PostgresSaver)
+        assert isinstance(second, harness.PostgresSaver)
+        assert first is not second
+        assert first.conn is second.conn is harness.pool()
+        assert harness.pool().closed
+        assert harness.pool().timeout == harness.POOL_WAIT_SECONDS
+    finally:
+        harness.pool.cache_clear()

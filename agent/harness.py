@@ -1,13 +1,12 @@
-"""The harness: the model, the claim agent's graph, the queue agent, and running them.
+"""The harness: the model, the claim agent's graph, and working a claim with it.
 
 The claim agent is a LangGraph graph saved after every step, so it can wait for a
-handler's sign-off and carry on after a restart. The queue agent is `create_agent`
-with the same checkpointer.
+handler's sign-off and carry on after a restart. `work_claim` is the dispatcher's
+one way in.
 """
 
 import json
 import os
-import threading
 from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -15,13 +14,8 @@ from datetime import UTC, datetime
 from functools import cache
 from typing import Annotated, Any, TypedDict, cast
 
-from langchain.agents import create_agent
-from langchain.agents.middleware import (
-    AgentMiddleware,
-    ModelRetryMiddleware,
-    wrap_tool_call,
-)
 from langchain.agents.middleware.types import ToolCallRequest
+from langchain_core.exceptions import ModelRateLimitError, ModelTimeoutError
 from langchain_core.language_models import BaseChatModel, LanguageModelInput
 from langchain_core.messages import (
     AIMessage,
@@ -56,12 +50,13 @@ DEFAULT_EFFORT = "low"
 TIMEOUT_SECONDS = 120
 CLAIM_MODEL_CALLS = 30
 CLAIM_RETRIES = 2
-QUEUE_RETRIES = 5
 RETRY_DELAY_SECONDS = 2.0
 ERROR_CHARS = 300
 CHECKPOINT_CONNECTIONS = 4
+POOL_WAIT_SECONDS = 120
 SCHEMA = "undercover"
 VERDICTS = {"decline": "declined", "refer": "referred"}
+RETRIED = (ModelRateLimitError, ModelTimeoutError)
 
 
 def model_settings() -> tuple[str, str]:
@@ -84,15 +79,17 @@ def model() -> ChatOpenAI:
 
 
 @cache
-def checkpointer() -> BaseCheckpointSaver:
-    """Save every step to Supabase when DATABASE_URL is set, or in memory otherwise."""
-    url = os.getenv("DATABASE_URL")
-    if not url:
-        return InMemorySaver()
-    pool = ConnectionPool(
-        url,
+def pool() -> ConnectionPool:
+    """Return the process's pool of Supabase connections for checkpoints.
+
+    Claim agents share its 4 connections and wait up to two minutes for one.
+    """
+    return ConnectionPool(
+        os.environ["DATABASE_URL"],
         min_size=1,
         max_size=CHECKPOINT_CONNECTIONS,
+        timeout=POOL_WAIT_SECONDS,
+        open=False,
         kwargs={
             "autocommit": True,
             "prepare_threshold": 0,
@@ -100,27 +97,46 @@ def checkpointer() -> BaseCheckpointSaver:
             "options": f"-c search_path={SCHEMA}",
         },
     )
-    return PostgresSaver(cast(Any, pool))
+
+
+@cache
+def memory() -> InMemorySaver:
+    """Return the one in-memory checkpointer, used when DATABASE_URL is not set."""
+    return InMemorySaver()
+
+
+def saver() -> BaseCheckpointSaver:
+    """Return a checkpointer for one claim run: its own, on the shared pool.
+
+    A `PostgresSaver` holds a lock around every read and write, so claim agents
+    sharing one would take turns.
+    """
+    if not os.getenv("DATABASE_URL"):
+        return memory()
+    return PostgresSaver(cast(Any, pool()))
 
 
 def set_up_checkpoints() -> None:
-    """Create the checkpointer's tables in Supabase, if they are not there yet."""
-    saver = checkpointer()
-    if isinstance(saver, PostgresSaver):
-        saver.setup()
+    """Open the pool and create the checkpointer's tables, when on Supabase."""
+    if os.getenv("DATABASE_URL"):
+        pool().open(wait=True)
+        PostgresSaver(cast(Any, pool())).setup()
 
 
 @contextmanager
-def tracing(claim_id: str, thread_id: str) -> Iterator[RunnableConfig]:
+def tracing(
+    claim_id: str, thread_id: str, run_id: str | None
+) -> Iterator[RunnableConfig]:
     """Trace a claim in Langfuse, in one session per attempt, when the keys are set.
 
-    The session is set on everything traced inside, so a claim worked inside the
-    queue agent's run lands in its own session too.
+    The session and the run's tag are set on everything traced inside, since a
+    claim worked inside the dispatcher's graph is not the root of its trace.
     """
     if not os.getenv("LANGFUSE_PUBLIC_KEY"):
         yield {}
         return
-    with propagate_attributes(session_id=f"{claim_id} {thread_id}"):
+    tags = [run_id] if run_id else None
+    with propagate_attributes(session_id=f"{claim_id} {thread_id}", tags=tags):
         yield {"callbacks": [CallbackHandler()]}
 
 
@@ -253,7 +269,7 @@ def claim_graph() -> ClaimGraph:
     )
     builder.add_edge("sign_off", "pay")
     builder.add_edge("pay", END)
-    return builder.compile(checkpointer=checkpointer())
+    return builder.compile(checkpointer=saver())
 
 
 def steps_of(message: BaseMessage) -> list[tuple[str, str]]:
@@ -342,7 +358,7 @@ def run_claim(
         instructions=SystemMessage(api.get_instructions("claim")),
         run_id=run_id,
     )
-    with timed(claim_id, run_id), tracing(claim_id, thread_id) as traced:
+    with timed(claim_id, run_id), tracing(claim_id, thread_id, run_id) as traced:
         stream = graph.stream(
             start,
             {**config, **traced},
@@ -367,10 +383,16 @@ def outcome(record: api.Json) -> str:
 
 
 def attempt(claim_id: str, thread_id: str, run_id: str | None) -> str:
-    """Work or carry on a claim on its thread, and return it to the queue on failure."""
+    """Work or carry on a claim on its thread, and return it to the queue on failure.
+
+    A rate limit or a timeout is raised with the claim still in progress, so a
+    retry carries it on from its last step.
+    """
     problem = "The agent finished without completing the claim."
     try:
         run_claim(claim_id, thread_id, run_id)
+    except RETRIED:
+        raise
     except Exception as error:  # noqa: BLE001
         problem = f"The agent failed: {error}"[:ERROR_CHARS]
     record = api.get_claim(claim_id)
@@ -382,104 +404,36 @@ def attempt(claim_id: str, thread_id: str, run_id: str | None) -> str:
     return f"{claim_id}: failed, back in the queue to try again. {problem}"
 
 
-def work_claim(run_id: str, claim_id: str) -> str:
-    """Take a claim into the run, or carry on one it holds, and report one line."""
-    record = api.get_claim(claim_id)
-    if record["run_id"] == run_id and record["status"] != "waiting":
-        if record["status"] == "in_progress":
-            return attempt(claim_id, record["thread_id"], run_id)
-        return f"{claim_id}: {outcome(record)}"
+def take(run_id: str, claim_id: str) -> str:
+    """Take a claim into the run and return its thread, marking a new one started."""
+    waiting = api.get_claim(claim_id)["status"] == "waiting"
+    thread_id = api.take_claim(run_id, claim_id)["thread_id"]
+    if waiting:
+        api.add_step(claim_id, thread_id, "message", "Agent started")
+    return thread_id
+
+
+def take_and_attempt(run_id: str, claim_id: str) -> str:
+    """Take a claim into the run and work it, or say why it was not taken."""
     try:
-        thread_id = api.take_claim(run_id, claim_id)["thread_id"]
+        thread_id = take(run_id, claim_id)
     except api.Refused as refusal:
         return f"{claim_id}: not taken. {refusal.detail}"
-    api.add_step(claim_id, thread_id, "message", "Agent started")
     return attempt(claim_id, thread_id, run_id)
 
 
-CARRYING_ON = threading.Lock()
+def work_claim(run_id: str, claim_id: str) -> str:
+    """Work a claim in a run, once more if it fails once, and report it in one line.
 
-
-def carry_on() -> None:
-    """Carry on each claim left in progress: stopped partway, or signed off."""
-    with CARRYING_ON:
-        for claim in api.list_claims():
-            if claim["status"] == "in_progress" and claim["thread_id"]:
-                attempt(claim["claim_id"], claim["thread_id"], None)
-
-
-def queue_middleware() -> list[AgentMiddleware[Any, Any]]:
-    """Return refusals as text, and retry more often, since a failure stops the run."""
-    return [
-        wrap_tool_call(refused_as_text),
-        ModelRetryMiddleware(
-            max_retries=QUEUE_RETRIES,
-            initial_delay=RETRY_DELAY_SECONDS,
-            on_failure="error",
-        ),
-    ]
-
-
-def run_queue(run_id: str, llm: BaseChatModel | None = None) -> str:
-    """Run the queue agent on a run, or carry on a run that was stopped."""
-    agent_ = create_agent(
-        llm or model(),
-        tools=tools.QUEUE_TOOLS,
-        system_prompt=api.get_instructions("queue"),
-        middleware=queue_middleware(),
-        context_schema=tools.RunContext,
-        checkpointer=checkpointer(),
-    )
-    config: RunnableConfig = {"configurable": {"thread_id": run_id}}
-    request = {"role": "user", "content": f"Work the queue for run {run_id}."}
-    start = None if agent_.get_state(config).next else {"messages": [request]}
-    result = agent_.invoke(
-        cast(Any, start), config, context=tools.RunContext(run_id), durability="sync"
-    )
-    return result["messages"][-1].text
-
-
-def work_run(run_id: str) -> None:
-    """Carry on, then run the queue agent, and stop the run if it never finishes."""
-    carry_on()
-    reason = "The agent ended without finishing the run."
-    try:
-        run_queue(run_id)
-    except Exception as error:  # noqa: BLE001
-        reason = f"The agent failed: {error}"[:ERROR_CHARS]
-    if api.get_run(run_id)["status"] == "running":
-        api.stop_run(run_id, reason)
-
-
-def work_one(run_id: str, claim_id: str) -> None:
-    """Carry on, then work one claim (again if it fails once), and finish the run."""
-    carry_on()
-    line = work_claim(run_id, claim_id)
+    A waiting claim starts on a new thread, and one in progress carries on from
+    its last step as the same attempt. This is the dispatcher's only way in.
+    """
+    line = take_and_attempt(run_id, claim_id)
     if api.get_claim(claim_id)["status"] == "waiting":
-        line = work_claim(run_id, claim_id)
-    api.finish_run(run_id, line)
+        line = take_and_attempt(run_id, claim_id)
+    return line
 
 
 def resume(claim_id: str) -> None:
     """Pick a claim back up after its sign-off, and pay it."""
     attempt(claim_id, api.get_claim(claim_id)["thread_id"], None)
-
-
-def has_queue_thread(run_id: str) -> bool:
-    """Say whether a queue agent has worked the run, so has a thread to carry on."""
-    return checkpointer().get_tuple({"configurable": {"thread_id": run_id}}) is not None
-
-
-def pick_up() -> None:
-    """When the agent starts, carry on the run left running, or claims in progress.
-
-    A run on one claim has no queue agent, so it is finished with its claim's line.
-    """
-    api.wait_for_backend()
-    run = api.get_latest_run()
-    if not run or run["status"] != "running":
-        carry_on()
-    elif run["claim_ids"] and not has_queue_thread(run["run_id"]):
-        work_one(run["run_id"], run["claim_ids"][0])
-    else:
-        work_run(run["run_id"])

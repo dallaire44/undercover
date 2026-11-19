@@ -28,3 +28,11 @@ def test_only_usage_records_model_calls_and_work_times():
             text = path.read_text(encoding="utf-8")
             assert "model_calls" not in text, path.name
             assert "work_times" not in text, path.name
+
+
+def test_only_agent_service_knows_the_agent_s_address_and_routes():
+    for path in BACKEND.glob("*.py"):
+        if path.name != "agent_service.py":
+            text = path.read_text(encoding="utf-8")
+            assert "8002" not in text, path.name
+            assert not re.search(r"[\"']/(dispatches|claims/)", text), path.name
