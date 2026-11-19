@@ -10,7 +10,6 @@ from backend.errors import NotFound, Refused
 from backend.models import ClaimSummary, Run, RunState, State, StepRequest, Todo
 
 MAX_ATTEMPTS = 2
-RESTARTED = "The backend restarted during the run."
 
 
 def start(conn: Connection, cap: int) -> Run:
@@ -168,10 +167,3 @@ def stop(conn: Connection, run_id: str, reason: str) -> Run:
     for claim_id in claim_ids(conn, run_id, "in_progress"):
         return_claim(conn, claim_id, thread_id=run_id, reason=reason)
     return close(conn, run_id, "stopped", reason)
-
-
-def recover(conn: Connection) -> None:
-    """Stop every run left running when the backend last stopped."""
-    query = select(runs.c.run_id).where(runs.c.status == "running")
-    for run_id in conn.scalars(query).all():
-        stop(conn, run_id, RESTARTED)

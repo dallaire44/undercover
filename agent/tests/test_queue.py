@@ -5,13 +5,12 @@ from langchain_core.messages import AIMessage, ToolMessage
 
 from agent import cli, harness
 from agent.tests.conftest import Recorder, call, decide, stub
-from backend import db, runner, runs
+from backend import db, runs
 
 
 @pytest.fixture
-def start(client, monkeypatch):
-    """Start runs without starting the agent, so each test drives it."""
-    monkeypatch.setenv("UNDERCOVER_AGENT", "off")
+def start(client):
+    """Start runs without the agent working them, so each test drives it."""
 
     def start(cap):
         return client.post("/api/runs", json={"cap": cap}).json()["run_id"]
@@ -192,7 +191,7 @@ def test_a_fresh_start_for_each_claim(client, start, monkeypatch):
 def test_a_run_that_ends_without_finishing_is_stopped(client, start, monkeypatch):
     run_id = start(2)
     monkeypatch.setattr(harness, "model", lambda: stub(AIMessage(content="Bye.")))
-    runner.run_queue(run_id)
+    harness.work_run(run_id)
     run = run_of(client, run_id)
     assert run["status"] == "stopped"
     assert run["summary"] == "The agent ended without finishing the run."
@@ -211,14 +210,14 @@ def test_a_failing_queue_agent_is_retried_then_stops_the_run(
     broken = Broken(messages=iter([]))
     monkeypatch.setattr(harness, "model", lambda: broken)
     run_id = start(2)
-    runner.run_queue(run_id)
+    harness.work_run(run_id)
     assert len(broken.seen) == 1 + harness.QUEUE_RETRIES
     run = run_of(client, run_id)
     assert run["status"] == "stopped"
     assert run["summary"] == "The agent failed: provider unavailable"
 
 
-def test_one_named_claim(client, claim_agent):
+def test_one_named_claim(client, service, claim_agent):
     response = client.post("/api/claims/CLM-1001/agent")
     assert response.status_code == 202
     run = run_of(client, response.json()["run_id"])
@@ -228,7 +227,7 @@ def test_one_named_claim(client, claim_agent):
     assert client.post("/api/claims/CLM-1001/agent").status_code == 409
 
 
-def test_a_queue_run_from_the_api(client, monkeypatch):
+def test_a_queue_run_from_the_api(client, service, monkeypatch):
     monkeypatch.setattr(harness, "model", lambda: stub(*finish()))
     run = client.post("/api/runs", json={"cap": 0})
     assert run.status_code == 422
@@ -243,7 +242,7 @@ def test_one_run_at_a_time(client, start):
     assert client.post("/api/runs", json={"cap": 1}).status_code == 409
 
 
-def test_the_command_line(client, claim_agent, capsys):
+def test_the_command_line(client, service, claim_agent, capsys):
     cli.main(["--claim", "CLM-1001"])
     assert capsys.readouterr().out.endswith("finished: CLM-1001: declined\n")
 

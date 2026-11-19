@@ -44,9 +44,8 @@ class Broken(Recorder):
 
 
 @pytest.fixture
-def run_id(client, monkeypatch):
-    """A running run of two claims, with no agent started by the backend."""
-    monkeypatch.setenv("UNDERCOVER_AGENT", "off")
+def run_id(client):
+    """A running run of two claims, which no agent works until a test does."""
     return client.post("/api/runs", json={"cap": 2}).json()["run_id"]
 
 

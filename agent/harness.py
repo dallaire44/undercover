@@ -93,6 +93,13 @@ def checkpointer() -> BaseCheckpointSaver:
     return PostgresSaver(cast(Any, pool))
 
 
+def set_up_checkpoints() -> None:
+    """Create the checkpointer's tables in Supabase, if they are not there yet."""
+    saver = checkpointer()
+    if isinstance(saver, PostgresSaver):
+        saver.setup()
+
+
 def tracing(claim_id: str, thread_id: str) -> RunnableConfig:
     """Trace a claim in Langfuse, in one session per attempt, when the keys are set."""
     if not os.getenv("LANGFUSE_PUBLIC_KEY"):
@@ -382,3 +389,39 @@ def run_queue(run_id: str, llm: BaseChatModel | None = None) -> str:
         cast(Any, start), config, context=tools.RunContext(run_id), durability="sync"
     )
     return result["messages"][-1].text
+
+
+def work_run(run_id: str) -> None:
+    """Carry on, then run the queue agent, and stop the run if it never finishes."""
+    carry_on()
+    reason = "The agent ended without finishing the run."
+    try:
+        run_queue(run_id)
+    except Exception as error:  # noqa: BLE001
+        reason = f"The agent failed: {error}"[:ERROR_CHARS]
+    if api.get_run(run_id)["status"] == "running":
+        api.stop_run(run_id, reason)
+
+
+def work_one(run_id: str, claim_id: str) -> None:
+    """Carry on, then work one claim (again if it fails once), and finish the run."""
+    carry_on()
+    line = work_claim(run_id, claim_id)
+    if api.get_claim(claim_id)["status"] == "waiting":
+        line = work_claim(run_id, claim_id)
+    api.finish_run(run_id, line)
+
+
+def resume(claim_id: str) -> None:
+    """Pick a claim back up after its sign-off, and pay it."""
+    attempt(claim_id, api.get_claim(claim_id)["thread_id"])
+
+
+def pick_up() -> None:
+    """When the agent starts, carry on the run left running, or claims in progress."""
+    api.wait_for_backend()
+    run = api.get_latest_run()
+    if run and run["status"] == "running":
+        work_run(run["run_id"])
+    else:
+        carry_on()

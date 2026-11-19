@@ -6,8 +6,11 @@ from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 
 from agent import api, harness
-from backend import db
+from agent import service as agent_service_app
+from backend import agent_service, db
 from backend.main import app
+
+REAL_ASK = agent_service.ask
 
 
 class StubModel(GenericFakeChatModel):
@@ -24,6 +27,30 @@ def fresh_checkpoints(monkeypatch):
     harness.checkpointer.cache_clear()
     yield
     harness.checkpointer.cache_clear()
+
+
+@pytest.fixture(autouse=True)
+def agent_calls(monkeypatch):
+    """Record what the backend asks of the agent's service, without doing it."""
+    calls: list[str] = []
+
+    def ask(path):
+        calls.append(path)
+        return True
+
+    monkeypatch.setattr(agent_service, "ask", ask)
+    return calls
+
+
+@pytest.fixture
+def service(monkeypatch):
+    """Send the backend's calls to the agent's service, run in this process."""
+    monkeypatch.setattr(agent_service, "ask", REAL_ASK)
+    monkeypatch.setattr(
+        agent_service,
+        "agent",
+        lambda: nullcontext(TestClient(agent_service_app.app)),
+    )
 
 
 @pytest.fixture

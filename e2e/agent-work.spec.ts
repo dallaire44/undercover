@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
+import { AGENT } from "../playwright.config";
 import { expectCountsMatchChips } from "./helpers";
 
 test("a payout over the limit waits for a sign-off, then the agent pays it", async ({
@@ -28,6 +29,12 @@ test("a payout over the limit waits for a sign-off, then the agent pays it", asy
   await expect(page.getByText("In progress", { exact: true })).toBeVisible();
   await expect(page.getByText(/^Signed off by Priya Raman on /)).toBeVisible();
   await expect(page.getByText("Payment on hold")).toBeHidden();
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get(`${AGENT}/calls`)).json()) as string[],
+    )
+    .toContain("POST /claims/CLM-1012/resume");
 
   const paid = await request.post("/api/claims/CLM-1012/payment", {
     data: { amount: 1500 },

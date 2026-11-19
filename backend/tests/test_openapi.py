@@ -1,9 +1,12 @@
+from fastapi import FastAPI
+
 from backend.main import app
 
 
-def test_every_operation_follows_the_rules():
-    paths = app.openapi()["paths"]
-    for path, methods in paths.items():
+def assert_every_operation_follows_the_rules(api: FastAPI) -> None:
+    """Every operation has an id, a one-line docstring and no optional inputs."""
+    schema = api.openapi()
+    for path, methods in schema["paths"].items():
         for method, operation in methods.items():
             where = f"{method} {path}"
             assert operation.get("operationId"), where
@@ -13,7 +16,10 @@ def test_every_operation_follows_the_rules():
             body = operation.get("requestBody")
             if body:
                 assert body["required"], where
-                schema = body["content"]["application/json"]["schema"]
-                name = schema["$ref"].split("/")[-1]
-                model = app.openapi()["components"]["schemas"][name]
+                ref = body["content"]["application/json"]["schema"]["$ref"]
+                model = schema["components"]["schemas"][ref.split("/")[-1]]
                 assert set(model["properties"]) == set(model["required"]), where
+
+
+def test_every_operation_follows_the_rules():
+    assert_every_operation_follows_the_rules(app)

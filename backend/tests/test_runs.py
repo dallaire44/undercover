@@ -134,15 +134,22 @@ def test_no_run_yet(client):
     assert client.get("/api/runs/RUN-9999").status_code == 404
 
 
-def test_recovery_after_a_restart(client, run_id):
+def test_a_backend_restart_leaves_the_agent_s_work_alone(client, run_id):
     take(client, run_id, "CLM-1001")
     with TestClient(app):
         pass
-    run = client.get(f"/api/runs/{run_id}").json()
-    assert run["status"] == "stopped"
-    assert run["summary"] == "The backend restarted during the run."
+    assert client.get(f"/api/runs/{run_id}").json()["status"] == "running"
+    claim = client.get("/api/claims/CLM-1001").json()
+    assert (claim["status"], claim["attempts"]) == ("in_progress", 0)
+
+
+def test_the_agent_stops_a_run_it_cannot_finish(client, run_id):
+    take(client, run_id, "CLM-1001")
+    body = {"reason": "The agent failed: provider unavailable"}
+    run = client.post(f"/api/runs/{run_id}/stop", json=body).json()
+    assert (run["status"], run["summary"]) == ("stopped", body["reason"])
     assert status(client, "CLM-1001") == "waiting"
-    assert client.get("/api/claims/CLM-1001").json()["attempts"] == 1
+    assert client.post(f"/api/runs/{run_id}/stop", json=body).status_code == 409
 
 
 def test_each_attempt_has_its_own_thread(client, run_id):

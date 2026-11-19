@@ -1,6 +1,7 @@
 """The UnderCover backend's API, as the agent calls it: one function per operation."""
 
 import os
+import time
 from typing import Any, Literal
 
 import httpx
@@ -31,6 +32,16 @@ def send(method: str, path: str, **kwargs: Any) -> httpx.Response:
         raise Refused(response.status_code, response.json()["detail"])
     response.raise_for_status()
     return response
+
+
+def wait_for_backend() -> None:
+    """Wait until the backend answers, since it may start after the agent."""
+    while True:
+        try:
+            send("GET", "/api/health")
+            return
+        except httpx.TransportError:
+            time.sleep(1)
 
 
 def list_claims() -> list[Json]:
@@ -91,6 +102,10 @@ def start_agent(claim_id: str) -> Json:
     return send("POST", f"/api/claims/{claim_id}/agent").json()
 
 
+def get_latest_run() -> Json | None:
+    return send("GET", "/api/runs/latest").json()
+
+
 def get_run(run_id: str) -> Json:
     return send("GET", f"/api/runs/{run_id}").json()
 
@@ -115,3 +130,7 @@ def write_todos(run_id: str, todos: list[Json]) -> None:
 def finish_run(run_id: str, summary: str) -> Json:
     path = f"/api/runs/{run_id}/finish"
     return send("POST", path, json={"summary": summary}).json()
+
+
+def stop_run(run_id: str, reason: str) -> Json:
+    return send("POST", f"/api/runs/{run_id}/stop", json={"reason": reason}).json()

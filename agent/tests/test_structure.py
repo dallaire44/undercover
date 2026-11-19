@@ -23,3 +23,8 @@ def test_every_tool_is_in_tools():
 def test_only_the_harness_saves_checkpoints():
     for path in modules_except("harness.py"):
         assert "langgraph.checkpoint" not in path.read_text(encoding="utf-8"), path.name
+
+
+def test_only_the_service_answers_in_http():
+    for path in modules_except("service.py"):
+        assert "fastapi" not in path.read_text(encoding="utf-8"), path.name

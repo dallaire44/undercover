@@ -102,6 +102,7 @@ New or changed backend operations. Each has an `operation_id`, a one-line docstr
 | `take_claim` | `POST /api/runs/{run_id}/claims/{claim_id}` | Gives the claim a new `thread_id` |
 | `return_claim` | `POST /api/claims/{id}/return` | Clears the claim's `thread_id` |
 | `start_run`, `start_agent` | as today | Ask the agent's service to work the run, or stop it if the service can't be reached |
+| `stop_run` | `POST /api/runs/{run_id}/stop` `{reason}` | New, added in Phase 5. The agent stops a run its queue agent failed on or ended without finishing, which returns the run's claims in progress. This was the backend's runner's job while the agent ran inside it |
 
 `ClaimSummary` and `ClaimDetail` gain `run_id` and `thread_id`. `Payment` gains `signed_off_by` (the handler's name) and `signed_off_at`. In every `Line` of a payout request, `quantity`, `nights` and `hours` are required, as are `benefit`, `lines` and `paid_by_others` in the request itself, since operations have no optional inputs.
 
@@ -279,29 +280,30 @@ Success criteria. Every test uses a stub model and `InMemorySaver`:
   - a third web server, `node e2e/agent-stand-in.mjs` on port 8003
   - the e2e backend gets `UNDERCOVER_AGENT=http://127.0.0.1:8003`
 - `e2e/agent-work.spec.ts`: after the sign-off, the stand-in has received `POST /claims/CLM-1012/resume`.
-- `backend/tests/conftest.py`: an autouse fixture replaces `agent_service`'s calls with a recorder, so no backend test reaches a network.
+- `backend/tests/conftest.py`: an autouse fixture replaces `agent_service`'s calls with a recorder, so no backend test reaches a network. `agent/tests/conftest.py` does the same, and its `service` fixture sends the backend's calls to the agent's service in the same process, for tests that go end to end.
+- `agent/harness.py` takes over the runner's old jobs: `work_run` (carry on, run the queue agent, stop the run with `stop_run` if it never finishes), `work_one` (carry on, work the claim, again if it fails once, and finish the run with its line), `resume` and `pick_up` (when the service starts, carry on the run left running, or the claims in progress).
 
 Success criteria:
 
-- [ ] Backend tests:
-  - [ ] `POST /api/runs` asks the agent's service to work the new run.
-  - [ ] When the service can't be reached, the run is `stopped` with "The agent's service could not be reached".
-  - [ ] A sign-off asks the service to resume that claim, after the sign-off is saved. When the service can't be reached, the sign-off still stands and the claim is `in_progress`.
-- [ ] Agent tests (TestClient on `agent.service.app`, with the harness patched):
+- [x] Backend tests:
+  - [x] `POST /api/runs` asks the agent's service to work the new run.
+  - [x] When the service can't be reached, the run is `stopped` with "The agent's service could not be reached".
+  - [x] A sign-off asks the service to resume that claim, after the sign-off is saved. When the service can't be reached, the sign-off still stands and the claim is `in_progress`.
+- [x] Agent tests (TestClient on `agent.service.app`, with the harness patched):
   - `POST /claims/CLM-1003/resume` answers 202 and runs the resume once
   - `POST /runs/RUN-0001` runs `carry_on()`, then the queue agent
   - every service operation has an `operation_id`, a one-line docstring and no optional inputs
-- [ ] An agent test: the resume path end to end on stub models. Approve over the limit, sign off through the backend, then `resume_claim` leaves the claim `decided` and paid once.
-- [ ] E2E: a sign-off on the dashboard reaches the stand-in on port 8003, and never the service that `npm run dev` starts.
-- [ ] `test_structure.py`:
+- [x] An agent test: the resume path end to end on stub models. Approve over the limit, sign off through the backend, then `resume_claim` leaves the claim `decided` and paid once.
+- [x] E2E: a sign-off on the dashboard reaches the stand-in on port 8003, and never the service that `npm run dev` starts.
+- [x] `test_structure.py`:
   - the backend imports nothing from `agent`
   - only `backend/agent_service.py` uses `httpx` in the backend
   - only `agent/service.py` uses FastAPI in the agent
-- [ ] Live, with `npm run dev`:
+- [x] Live, with `npm run dev`:
   - `curl http://127.0.0.1:8002/health` answers `{"status": "ok"}`
   - `curl http://127.0.0.1:8002/openapi.json` lists the four operations
-- [ ] Code: the backend reaches the agent only through `backend/agent_service.py`, and the agent reaches the backend only through `agent/api.py`.
-- [ ] The pre-commit checks pass and the phase is committed.
+- [x] Code: the backend reaches the agent only through `backend/agent_service.py`, and the agent reaches the backend only through `agent/api.py`.
+- [x] The pre-commit checks pass and the phase is committed.
 
 ## Phase 6: The docs, and live runs on Supabase
 

@@ -9,7 +9,17 @@ from fastapi import BackgroundTasks, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 from sqlalchemy import Connection
 
-from backend import db, documents, payouts, records, rules, runner, runs, steps
+from backend import (
+    agent_service,
+    db,
+    documents,
+    payouts,
+    records,
+    rules,
+    runner,
+    runs,
+    steps,
+)
 from backend.errors import NotFound, Refused
 from backend.models import (
     ClaimDetail,
@@ -29,6 +39,7 @@ from backend.models import (
     SignOffRequest,
     Step,
     StepRequest,
+    StopRequest,
     Todo,
     TodoList,
 )
@@ -39,10 +50,8 @@ Db = Depends(db.get_db)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI) -> AsyncIterator[None]:
-    """Create and seed the database on first start, and stop any run left running."""
+    """Create and seed the database on first start."""
     db.init()
-    with db.connect() as conn:
-        runs.recover(conn)
     yield
 
 
@@ -173,9 +182,16 @@ def pay_claim(
 
 
 @app.post("/api/claims/{claim_id}/sign-off", operation_id="sign_off")
-def sign_off(claim_id: str, request: SignOffRequest, conn: Connection = Db) -> SignOff:
-    """Sign off a payout over the limit, so the agent can pay it."""
-    return rules.sign_off(conn, claim_id, request)
+def sign_off(
+    claim_id: str,
+    request: SignOffRequest,
+    tasks: BackgroundTasks,
+    conn: Connection = Db,
+) -> SignOff:
+    """Sign off a payout over the limit, then ask the agent to pick it up and pay it."""
+    signed = rules.sign_off(conn, claim_id, request)
+    tasks.add_task(agent_service.resume_claim, claim_id)
+    return signed
 
 
 @app.get("/api/runs/latest", operation_id="get_latest_run")
@@ -220,6 +236,13 @@ def write_todos(run_id: str, request: TodoList, conn: Connection = Db) -> list[T
 def finish_run(run_id: str, request: FinishRequest, conn: Connection = Db) -> Run:
     """Finish the run with a summary, once no claim is left to work."""
     return runs.finish(conn, run_id, request.summary)
+
+
+@app.post("/api/runs/{run_id}/stop", operation_id="stop_run")
+def stop_run(run_id: str, request: StopRequest, conn: Connection = Db) -> Run:
+    """Stop a run the agent could not finish, returning its claims in progress."""
+    runs.running(conn, run_id)
+    return runs.stop(conn, run_id, request.reason)
 
 
 @app.post("/api/runs", operation_id="start_run", status_code=202)

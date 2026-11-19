@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 
 const DB = "e2e/e2e.db";
+export const AGENT = "http://127.0.0.1:8003";
 
 export default defineConfig({
   testDir: "e2e",
@@ -12,7 +13,12 @@ export default defineConfig({
       command:
         "uv run -m backend.seed && uv run -m uvicorn backend.main:app --port 8001",
       url: "http://127.0.0.1:8001/api/health",
-      env: { UNDERCOVER_DB: DB, UNDERCOVER_AGENT: "off" },
+      env: { UNDERCOVER_DB: DB, UNDERCOVER_AGENT: AGENT },
+      reuseExistingServer: false,
+    },
+    {
+      command: "node e2e/agent-stand-in.mjs",
+      url: `${AGENT}/health`,
       reuseExistingServer: false,
     },
     {

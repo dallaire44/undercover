@@ -172,6 +172,10 @@ class FinishRequest(BaseModel):
     summary: str
 
 
+class StopRequest(BaseModel):
+    reason: str
+
+
 class Run(BaseModel):
     run_id: str
     cap: int
