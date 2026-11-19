@@ -23,6 +23,8 @@ CLAIMS = (
     select(
         claims.c.status,
         claims.c.attempts,
+        claims.c.run_id,
+        claims.c.thread_id,
         claims.c.doc,
         decisions.c.decision,
         decisions.c.payout,
@@ -70,6 +72,8 @@ def summaries(conn: Connection, claim_id: str | None) -> list[ClaimSummary]:
         ClaimSummary(
             **{**row["doc"], "status": row["status"]},
             attempts=row["attempts"],
+            run_id=row["run_id"],
+            thread_id=row["thread_id"],
             customer_name=row["customer_name"],
             decision=row["decision"],
             payout=row["payout"],
@@ -104,7 +108,10 @@ def get_claim(conn: Connection, claim_id: str) -> ClaimDetail:
         one(conn, t, claim_id) for t in (decisions, db.payments, db.sign_offs)
     )
     return ClaimDetail(
-        **{**claim, "status": row["status"], "attempts": row["attempts"]},
+        **{**claim, "status": row["status"]},
+        attempts=row["attempts"],
+        run_id=row["run_id"],
+        thread_id=row["thread_id"],
         customer_name=customer["name"],
         decision=DecisionRecord(**decision) if decision else None,
         payment=Payment(**payment) if payment else None,

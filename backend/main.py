@@ -15,11 +15,9 @@ from backend.models import (
     ClaimDetail,
     ClaimSummary,
     CustomerHistory,
-    DecisionRecord,
     DecisionRequest,
     FinishRequest,
     Handler,
-    Payment,
     PaymentRequest,
     Payout,
     PayoutRequest,
@@ -161,20 +159,22 @@ def add_step(claim_id: str, request: StepRequest, conn: Connection = Db) -> Step
 @app.post("/api/claims/{claim_id}/decision", operation_id="record_decision")
 def record_decision(
     claim_id: str, request: DecisionRequest, conn: Connection = Db
-) -> DecisionRecord:
-    """Record the decision on a claim: approve, decline or refer."""
+) -> ClaimDetail:
+    """Record the decision on a claim (approve, decline or refer) and return it."""
     return rules.record_decision(conn, claim_id, request)
 
 
 @app.post("/api/claims/{claim_id}/payment", operation_id="pay_claim")
-def pay_claim(claim_id: str, request: PaymentRequest, conn: Connection = Db) -> Payment:
-    """Pay an approved claim the amount of its payout."""
+def pay_claim(
+    claim_id: str, request: PaymentRequest, conn: Connection = Db
+) -> ClaimDetail:
+    """Pay an approved claim the amount of its payout, and return the claim."""
     return rules.pay_claim(conn, claim_id, request)
 
 
 @app.post("/api/claims/{claim_id}/sign-off", operation_id="sign_off")
 def sign_off(claim_id: str, request: SignOffRequest, conn: Connection = Db) -> SignOff:
-    """Sign off a payout over the limit, which pays the claim."""
+    """Sign off a payout over the limit, so the agent can pay it."""
     return rules.sign_off(conn, claim_id, request)
 
 

@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { expect, test } from "@playwright/test";
 import { expectCountsMatchChips } from "./helpers";
 
-test("a payout over the limit is blocked until a handler signs off", async ({
+test("a payout over the limit waits for a sign-off, then the agent pays it", async ({
   page,
   request,
 }) => {
@@ -25,10 +25,18 @@ test("a payout over the limit is blocked until a handler signs off", async ({
 
   await page.getByLabel("Handler").selectOption({ label: "Priya Raman" });
   await page.getByRole("button", { name: "Sign off and pay" }).click();
-  await expect(page.getByText("Decided", { exact: true })).toBeVisible();
-  await expect(page.getByText(/Signed off by Priya Raman/)).toBeVisible();
-  await expect(page.getByText(/^Paid \$1,500\.00/)).toBeVisible();
+  await expect(page.getByText("In progress", { exact: true })).toBeVisible();
+  await expect(page.getByText(/^Signed off by Priya Raman on /)).toBeVisible();
   await expect(page.getByText("Payment on hold")).toBeHidden();
+
+  const paid = await request.post("/api/claims/CLM-1012/payment", {
+    data: { amount: 1500 },
+  });
+  expect(paid.ok()).toBe(true);
+  await expect(page.getByText("Decided", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText(/^Paid \$1,500\.00 on .+ UTC, signed off by Priya Raman\.$/),
+  ).toBeVisible();
 
   await page.goto("/");
   const cells = page.getByRole("row", { name: /CLM-1012/ }).getByRole("cell");

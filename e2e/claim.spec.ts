@@ -6,7 +6,9 @@ test("a claim opens from the queue with its story, items and policy", async ({
   await page.goto("/");
   await page.getByRole("link", { name: "CLM-1001" }).click();
   await expect(page).toHaveURL(/#\/claims\/CLM-1001$/);
-  await expect(page.getByText("Maya Patel", { exact: true })).toBeVisible();
+  await expect(page.locator("dt:text-is('Customer') + dd")).toHaveText(
+    "Maya Patel",
+  );
   await expect(page.getByText(/Meridian Air/).first()).toBeVisible();
   await expect(page.getByRole("cell", { name: "$245.00" })).toBeVisible();
   await expect(

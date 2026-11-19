@@ -15,6 +15,17 @@ export const date = (iso: string) =>
     timeZone: "UTC",
   });
 
+export const dateTime = (iso: string) =>
+  new Date(iso).toLocaleString("en-US", {
+    year: "numeric",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+    timeZone: "UTC",
+  }) + " UTC";
+
 export const STATES: Record<State, string> = {
   waiting: "Waiting",
   in_progress: "In progress",

@@ -1,5 +1,7 @@
 """Runs of the agent over the queue: the cap, the to-do list and failed attempts."""
 
+import uuid
+
 from sqlalchemy import Connection, RowMapping, delete, func, insert, select, update
 
 from backend import db, records, steps
@@ -91,7 +93,7 @@ def take_claim(conn: Connection, run_id: str, claim_id: str) -> ClaimSummary:
     conn.execute(
         update(claims)
         .where(claims.c.claim_id == claim_id)
-        .values(status="in_progress", run_id=run_id)
+        .values(status="in_progress", run_id=run_id, thread_id=str(uuid.uuid4()))
     )
     conn.commit()
     return records.summary(conn, claim_id)
@@ -115,7 +117,7 @@ def return_claim(
     conn.execute(
         update(claims)
         .where(claims.c.claim_id == claim_id)
-        .values(status=state, attempts=attempts)
+        .values(status=state, attempts=attempts, thread_id=None)
     )
     conn.commit()
     text = f"{reason}\n{outcome}"

@@ -207,16 +207,16 @@ The records the durable agent relies on. The agent still runs in the backend in 
 
 Success criteria:
 
-- [ ] `uv run pytest backend/tests/test_rules.py` passes, with a test for each rule:
-  - [ ] **Repeat decision:** recording the same approval of $420.00 twice returns the claim both times, with one row in `decisions`. Recording a decline after it is 409 "already has a decision".
-  - [ ] **Repeat payment:** paying $420.00 twice returns the claim, `decided`, both times, with one row in `payments`. Paying $400.00 is 409.
-  - [ ] **The limit still holds:** paying $1,500.00 on an approval over the limit without a sign-off is 409 "needs a handler's sign-off".
-  - [ ] **Sign-off:** `sign_off` on CLM-1003 waiting at $3,750.00 moves it to `in_progress` with no payment. Paying it then succeeds, and the payment has `signed_off_by: "Priya Raman"` and a `signed_off_at`. A second sign-off is 409.
-- [ ] `uv run pytest backend/tests/test_runs.py` passes. `take_claim` gives a new `thread_id`. Taking the claim again after `return_claim` gives a different one.
-- [ ] Vitest: a paid claim with a sign-off shows "Paid $1,500.00 on …, signed off by Priya Raman" with the time. `format.test.ts` covers `dateTime`.
-- [ ] E2E: the sign-off test passes as described above.
-- [ ] Code: the rules raise only `NotFound` and `Refused`. Each repeat check sits in the rule it guards, in `backend/rules.py`.
-- [ ] The pre-commit checks pass and the phase is committed.
+- [x] `uv run pytest backend/tests/test_rules.py` passes, with a test for each rule:
+  - [x] **Repeat decision:** recording the same approval of $420.00 twice returns the claim both times, with one row in `decisions`. Recording a decline after it is 409 "already has a decision".
+  - [x] **Repeat payment:** paying $420.00 twice returns the claim, `decided`, both times, with one row in `payments`. Paying $400.00 is 409.
+  - [x] **The limit still holds:** paying $1,500.00 on an approval over the limit without a sign-off is 409 "needs a handler's sign-off".
+  - [x] **Sign-off:** `sign_off` on CLM-1003 waiting at $3,750.00 moves it to `in_progress` with no payment. Paying it then succeeds, and the payment has `signed_off_by: "Priya Raman"` and a `signed_off_at`. A second sign-off is 409.
+- [x] `uv run pytest backend/tests/test_runs.py` passes. `take_claim` gives a new `thread_id`. Taking the claim again after `return_claim` gives a different one.
+- [x] Vitest: a paid claim with a sign-off shows "Paid $1,500.00 on …, signed off by Priya Raman" with the time. `format.test.ts` covers `dateTime`.
+- [x] E2E: the sign-off test passes as described above. (Running the e2e tests also showed a race in `e2e/claim.spec.ts`: "Maya Patel" is both the customer and the policy's one traveler, so the check failed whenever the policy panel drew first. It now checks the definition beside "Customer".)
+- [x] Code: the rules raise only `NotFound` and `Refused`. Each repeat check sits in the rule it guards, in `backend/rules.py`.
+- [x] The pre-commit checks pass and the phase is committed.
 
 ## Phase 4: The claim agent as a durable LangGraph graph
 

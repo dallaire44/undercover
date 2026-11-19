@@ -42,9 +42,22 @@ it("shows the decision, payment and sign-off", async () => {
   expect(screen.getByText("Approved")).toBeDefined();
   expect(screen.getByText("The wording covers it.")).toBeDefined();
   expect(screen.getByText("Policy section: 3. Trip Delay")).toBeDefined();
-  expect(screen.getByText(/Signed off by Dana Whitfield/)).toBeDefined();
   expect(screen.getByText("Payout $420.00")).toBeDefined();
-  expect(screen.getByText(/^Paid/).textContent).toContain("$420.00");
+  expect(screen.getByText(/^Paid/).textContent).toBe(
+    "Paid $420.00 on Jun 25, 2026, 10:02 UTC, signed off by Dana Whitfield.",
+  );
+});
+
+it("shows a sign-off before the payment", async () => {
+  const signedOff = { ...decidedDetail, status: "in_progress", payment: null };
+  stubApi({ "/api/claims/CLM-1001": signedOff, ...related });
+  render(<Claim claimId="CLM-1001" />);
+  expect(
+    await screen.findByText(
+      "Signed off by Dana Whitfield on Jun 25, 2026, 10:00 UTC.",
+    ),
+  ).toBeDefined();
+  expect(screen.queryByText(/^Paid/)).toBeNull();
 });
 
 it("says when the claim is not found", async () => {

@@ -11,6 +11,8 @@ export interface ClaimSummary {
   customer_name: string;
   status: State;
   attempts: number;
+  run_id: string | null;
+  thread_id: string | null;
   decision: Verdict | null;
   payout: number | null;
 }
@@ -38,6 +40,8 @@ export interface Decision {
 export interface Payment {
   amount: number;
   paid_at: string;
+  signed_off_by: string | null;
+  signed_off_at: string | null;
 }
 
 export interface SignOff {
@@ -71,6 +75,8 @@ export interface ClaimDetail {
   customer_name: string;
   status: State;
   attempts: number;
+  run_id: string | null;
+  thread_id: string | null;
   policy_id: string;
   customer_id: string;
   incident_date: string;

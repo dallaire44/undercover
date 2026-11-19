@@ -29,15 +29,59 @@ def test_large_approval_cannot_be_paid(client):
     assert client.get("/api/claims/CLM-1003").json()["payment"] is None
 
 
-def test_sign_off_pays_once(client):
+def test_sign_off_does_not_pay(client):
     decide(client, "CLM-1003", payout=3750.0)
-    response = sign_off(client, "CLM-1003")
-    assert response.json()["handler_name"] == "Dana Whitfield"
+    response = sign_off(client, "CLM-1003", "HND-03")
+    assert response.json()["handler_name"] == "Priya Raman"
     claim = client.get("/api/claims/CLM-1003").json()
+    assert claim["status"] == "in_progress"
+    assert claim["payment"] is None
+    assert sign_off(client, "CLM-1003").status_code == 409
+
+
+def test_the_payment_records_the_sign_off(client):
+    decide(client, "CLM-1003", payout=3750.0)
+    signed = sign_off(client, "CLM-1003", "HND-03").json()
+    claim = pay(client, "CLM-1003", 3750.0).json()
     assert claim["status"] == "decided"
     assert claim["payment"]["amount"] == 3750.0
-    assert claim["sign_off"]["handler_id"] == "HND-01"
-    assert pay(client, "CLM-1003", 3750.0).status_code == 409
+    assert claim["payment"]["signed_off_by"] == "Priya Raman"
+    assert claim["payment"]["signed_off_at"] == signed["signed_at"]
+
+
+def test_a_small_payment_has_no_sign_off(client):
+    decide(client, "CLM-1001", payout=420.0)
+    payment = pay(client, "CLM-1001", 420.0).json()["payment"]
+    assert (payment["signed_off_by"], payment["signed_off_at"]) == (None, None)
+
+
+def test_a_repeated_decision_counts_as_done(client):
+    first = decide(client, "CLM-1001", payout=420.0)
+    again = decide(client, "CLM-1001", payout=420.0)
+    assert first.status_code == again.status_code == 200
+    assert again.json()["claim_id"] == "CLM-1001"
+    assert (
+        again.json()["decision"]["decided_at"] == first.json()["decision"]["decided_at"]
+    )
+    declined = decide(client, "CLM-1001", decision="decline", payout=0.0)
+    assert declined.status_code == 409
+    assert "already has a decision" in declined.json()["detail"]
+    assert decide(client, "CLM-1001", payout=400.0).status_code == 409
+
+
+def test_a_repeated_decline_counts_as_done(client):
+    decide(client, "CLM-1001", decision="decline", payout=0.0)
+    assert decide(client, "CLM-1001", decision="decline", payout=0.0).status_code == 200
+
+
+def test_a_repeated_payment_counts_as_done(client):
+    decide(client, "CLM-1001", payout=420.0)
+    first = pay(client, "CLM-1001", 420.0).json()
+    again = pay(client, "CLM-1001", 420.0)
+    assert again.status_code == 200
+    assert again.json()["status"] == "decided"
+    assert again.json()["payment"]["paid_at"] == first["payment"]["paid_at"]
+    assert pay(client, "CLM-1001", 400.0).status_code == 409
 
 
 @pytest.mark.parametrize("decision", ["decline", "refer"])

@@ -57,6 +57,7 @@ claims = Table(
     Column("doc", JSON, nullable=False),
     Column("attempts", Integer, nullable=False),
     Column("run_id", String),
+    Column("thread_id", String),
 )
 policies = documents("policies", "policy_id")
 customers = documents("customers", "customer_id")
@@ -77,6 +78,8 @@ payments = Table(
     Column("claim_id", String, primary_key=True),
     Column("amount", Float, nullable=False),
     Column("paid_at", String, nullable=False),
+    Column("signed_off_by", String),
+    Column("signed_off_at", String),
 )
 sign_offs = Table(
     "sign_offs",

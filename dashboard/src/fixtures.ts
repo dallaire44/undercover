@@ -18,6 +18,8 @@ export const waitingClaim: ClaimSummary = {
   customer_name: "Maya Patel",
   status: "waiting",
   attempts: 0,
+  run_id: null,
+  thread_id: null,
   decision: null,
   payout: null,
 };
@@ -67,7 +69,12 @@ export const decidedDetail: ClaimDetail = {
     policy_section: "3. Trip Delay",
     decided_at: "2026-06-25T10:00:00+00:00",
   },
-  payment: { amount: 420, paid_at: "2026-06-25T10:00:01+00:00" },
+  payment: {
+    amount: 420,
+    paid_at: "2026-06-25T10:02:01+00:00",
+    signed_off_by: "Dana Whitfield",
+    signed_off_at: "2026-06-25T10:00:00+00:00",
+  },
   sign_off: {
     handler_id: "HND-01",
     handler_name: "Dana Whitfield",

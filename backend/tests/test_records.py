@@ -18,6 +18,8 @@ def test_list_claims(client):
         "customer_name",
         "status",
         "attempts",
+        "run_id",
+        "thread_id",
         "decision",
         "payout",
     }

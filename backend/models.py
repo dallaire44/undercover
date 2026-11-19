@@ -30,6 +30,8 @@ class ClaimCore(BaseModel):
     customer_name: str
     status: State
     attempts: int
+    run_id: str | None
+    thread_id: str | None
 
 
 class ClaimSummary(ClaimCore):
@@ -66,6 +68,8 @@ class PaymentRequest(BaseModel):
 
 class Payment(PaymentRequest):
     paid_at: str
+    signed_off_by: str | None
+    signed_off_at: str | None
 
 
 class SignOffRequest(BaseModel):

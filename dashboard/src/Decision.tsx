@@ -1,6 +1,6 @@
 import type { ClaimDetail } from "./api";
 import { VerdictChip } from "./Chips";
-import { date, money } from "./format";
+import { dateTime, money } from "./format";
 
 export function Decision({ claim }: Readonly<{ claim: ClaimDetail }>) {
   const { decision, payment, sign_off: signOff } = claim;
@@ -14,15 +14,16 @@ export function Decision({ claim }: Readonly<{ claim: ClaimDetail }>) {
       </p>
       <p>{decision.reason}</p>
       <p className="muted">Policy section: {decision.policy_section}</p>
-      {signOff && (
+      {signOff && !payment && (
         <p>
-          Signed off by {signOff.handler_name} on {date(signOff.signed_at)}.
+          Signed off by {signOff.handler_name} on {dateTime(signOff.signed_at)}.
         </p>
       )}
       {payment && (
         <p>
           Paid <span className="num">{money(payment.amount)}</span> on{" "}
-          {date(payment.paid_at)}.
+          {dateTime(payment.paid_at)}
+          {payment.signed_off_by && `, signed off by ${payment.signed_off_by}`}.
         </p>
       )}
     </section>

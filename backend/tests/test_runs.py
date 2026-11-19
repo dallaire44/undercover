@@ -143,3 +143,13 @@ def test_recovery_after_a_restart(client, run_id):
     assert run["summary"] == "The backend restarted during the run."
     assert status(client, "CLM-1001") == "waiting"
     assert client.get("/api/claims/CLM-1001").json()["attempts"] == 1
+
+
+def test_each_attempt_has_its_own_thread(client, run_id):
+    first = take(client, run_id, "CLM-1001").json()
+    assert first["thread_id"]
+    assert first["run_id"] == run_id
+    assert fail(client, "CLM-1001").json()["thread_id"] is None
+    again = take(client, run_id, "CLM-1001").json()["thread_id"]
+    assert again
+    assert again != first["thread_id"]
