@@ -1,71 +1,168 @@
-"""The SQLite database: its tables, and a seed from `data/`."""
+"""The database: its tables and engine, and a seed from `data/`.
+
+The backend uses Supabase Postgres when `DATABASE_URL` is set, and SQLite otherwise.
+On Postgres every table is in the `undercover` schema, set as the connection's
+search path, so the same queries run on both.
+"""
 
 import json
 import os
-import sqlite3
 from collections.abc import Iterator
-from contextlib import closing
 from datetime import UTC, datetime
 from functools import cache
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy import (
+    JSON,
+    URL,
+    Column,
+    Connection,
+    Engine,
+    Float,
+    Integer,
+    MetaData,
+    String,
+    Table,
+    Text,
+    create_engine,
+    insert,
+    make_url,
+    select,
+    text,
+)
+
 DATA = Path(__file__).parent.parent / "data"
+SCHEMA = "undercover"
+POOL_SIZE = 4
+
+metadata = MetaData()
+
+
+def documents(name: str, key: str) -> Table:
+    """A table of JSON documents from `data/`, keyed by their id."""
+    return Table(
+        name,
+        metadata,
+        Column(key, String, primary_key=True),
+        Column("doc", JSON, nullable=False),
+    )
+
+
+claims = Table(
+    "claims",
+    metadata,
+    Column("claim_id", String, primary_key=True),
+    Column("status", String, nullable=False),
+    Column("doc", JSON, nullable=False),
+    Column("attempts", Integer, nullable=False),
+    Column("run_id", String),
+)
+policies = documents("policies", "policy_id")
+customers = documents("customers", "customer_id")
+handlers = documents("handlers", "handler_id")
+decisions = Table(
+    "decisions",
+    metadata,
+    Column("claim_id", String, primary_key=True),
+    Column("decision", String, nullable=False),
+    Column("payout", Float, nullable=False),
+    Column("reason", Text, nullable=False),
+    Column("policy_section", String, nullable=False),
+    Column("decided_at", String, nullable=False),
+)
+payments = Table(
+    "payments",
+    metadata,
+    Column("claim_id", String, primary_key=True),
+    Column("amount", Float, nullable=False),
+    Column("paid_at", String, nullable=False),
+)
+sign_offs = Table(
+    "sign_offs",
+    metadata,
+    Column("claim_id", String, primary_key=True),
+    Column("handler_id", String, nullable=False),
+    Column("signed_at", String, nullable=False),
+)
+steps = Table(
+    "steps",
+    metadata,
+    Column("id", Integer, primary_key=True, autoincrement=True),
+    Column("claim_id", String, nullable=False),
+    Column("thread_id", String, nullable=False),
+    Column("kind", String, nullable=False),
+    Column("text", Text, nullable=False),
+    Column("created_at", String, nullable=False),
+)
+runs = Table(
+    "runs",
+    metadata,
+    Column("run_id", String, primary_key=True),
+    Column("cap", Integer, nullable=False),
+    Column("status", String, nullable=False),
+    Column("summary", Text, nullable=False),
+    Column("started_at", String, nullable=False),
+    Column("finished_at", String),
+)
+todos = Table(
+    "todos",
+    metadata,
+    Column("run_id", String, primary_key=True),
+    Column("position", Integer, primary_key=True),
+    Column("content", Text, nullable=False),
+    Column("status", String, nullable=False),
+)
 
 DOCUMENTS = {
-    "claims": "claim_id",
-    "policies": "policy_id",
-    "customers": "customer_id",
-    "handlers": "handler_id",
+    "claims": claims,
+    "policies": policies,
+    "customers": customers,
+    "handlers": handlers,
 }
 
-SCHEMA = """
-CREATE TABLE IF NOT EXISTS claims (
-    claim_id TEXT PRIMARY KEY, status TEXT NOT NULL, doc TEXT NOT NULL,
-    attempts INTEGER NOT NULL, run_id TEXT);
-CREATE TABLE IF NOT EXISTS policies (policy_id TEXT PRIMARY KEY, doc TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS customers (customer_id TEXT PRIMARY KEY, doc TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS handlers (handler_id TEXT PRIMARY KEY, doc TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS decisions (
-    claim_id TEXT PRIMARY KEY, decision TEXT NOT NULL, payout REAL NOT NULL,
-    reason TEXT NOT NULL, policy_section TEXT NOT NULL, decided_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS payments (
-    claim_id TEXT PRIMARY KEY, amount REAL NOT NULL, paid_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS sign_offs (
-    claim_id TEXT PRIMARY KEY, handler_id TEXT NOT NULL, signed_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS steps (
-    id INTEGER PRIMARY KEY AUTOINCREMENT, claim_id TEXT NOT NULL,
-    thread_id TEXT NOT NULL, kind TEXT NOT NULL, text TEXT NOT NULL,
-    created_at TEXT NOT NULL);
-CREATE TABLE IF NOT EXISTS runs (
-    run_id TEXT PRIMARY KEY, cap INTEGER NOT NULL, status TEXT NOT NULL,
-    summary TEXT NOT NULL, started_at TEXT NOT NULL, finished_at TEXT);
-CREATE TABLE IF NOT EXISTS todos (
-    run_id TEXT NOT NULL, position INTEGER NOT NULL, content TEXT NOT NULL,
-    status TEXT NOT NULL, PRIMARY KEY (run_id, position));
-"""
+
+def url() -> URL:
+    """Return Supabase's URL from DATABASE_URL, or SQLite's at UNDERCOVER_DB."""
+    found = os.getenv("DATABASE_URL")
+    if found:
+        return make_url(found).set(drivername="postgresql+psycopg")
+    return make_url(f"sqlite:///{os.getenv('UNDERCOVER_DB', 'undercover.db')}")
 
 
-def connect() -> sqlite3.Connection:
-    """Open the database named by UNDERCOVER_DB, or undercover.db."""
-    conn = sqlite3.connect(
-        os.getenv("UNDERCOVER_DB", "undercover.db"),
-        timeout=30,
-        check_same_thread=False,
-    )
-    conn.row_factory = sqlite3.Row
-    return conn
+@cache
+def engine_for(address: URL) -> Engine:
+    """Make the engine for one database, with at most 4 connections on Postgres."""
+    if address.get_backend_name() == "postgresql":
+        return create_engine(
+            address,
+            pool_size=POOL_SIZE,
+            max_overflow=0,
+            pool_pre_ping=True,
+            connect_args={"options": f"-c search_path={SCHEMA}"},
+        )
+    return create_engine(address, connect_args={"check_same_thread": False})
+
+
+def engine() -> Engine:
+    """Return the engine for the database in the environment."""
+    return engine_for(url())
+
+
+def connect() -> Connection:
+    """Open a connection. Writes commit themselves."""
+    return engine().connect()
+
+
+def get_db() -> Iterator[Connection]:
+    """Give a request its own connection."""
+    with connect() as conn:
+        yield conn
 
 
 def now() -> str:
     """Return the current time, to the second, as stored in the database."""
     return datetime.now(UTC).isoformat(timespec="seconds")
-
-
-def get_db() -> Iterator[sqlite3.Connection]:
-    """Give a request its own connection. Writes commit themselves."""
-    with closing(connect()) as conn:
-        yield conn
 
 
 @cache
@@ -74,33 +171,27 @@ def load(name: str) -> Any:
     return json.loads((DATA / f"{name}.json").read_text(encoding="utf-8"))
 
 
-def seed(conn: sqlite3.Connection) -> None:
+def seed(conn: Connection) -> None:
     """Copy the claims, policies, customers and handlers from `data/`."""
-    with conn:
-        for table, key in DOCUMENTS.items():
-            for record in load(table):
-                values = [record[key], json.dumps(record)]
-                if table == "claims":
-                    values = [values[0], "waiting", values[1], 0, None]
-                marks = ",".join("?" * len(values))
-                conn.execute(f"INSERT INTO {table} VALUES ({marks})", values)  # noqa: S608
+    for name, table in DOCUMENTS.items():
+        key = next(iter(table.primary_key)).name
+        rows = [{key: record[key], "doc": record} for record in load(name)]
+        if table is claims:
+            rows = [{**r, "status": "waiting", "attempts": 0} for r in rows]
+        conn.execute(insert(table), rows)
 
 
 def init() -> None:
     """Create the tables, and seed them if the database is new."""
-    with closing(connect()) as conn:
-        conn.executescript(SCHEMA)
-        if not conn.execute("SELECT 1 FROM claims").fetchone():
+    with engine().begin() as conn:
+        if conn.dialect.name == "postgresql":
+            conn.execute(text(f"CREATE SCHEMA IF NOT EXISTS {SCHEMA}"))
+        metadata.create_all(conn)
+        if conn.execute(select(claims.c.claim_id).limit(1)).first() is None:
             seed(conn)
 
 
 def reset() -> None:
     """Drop every table and seed the database again."""
-    with closing(connect()) as conn:
-        tables = conn.execute(
-            "SELECT name FROM sqlite_master "
-            "WHERE type = 'table' AND name NOT LIKE 'sqlite_%'"
-        )
-        for (name,) in tables.fetchall():
-            conn.execute(f"DROP TABLE {name}")  # noqa: S608
+    metadata.drop_all(engine())
     init()

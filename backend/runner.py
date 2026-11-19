@@ -1,10 +1,9 @@
 """Start the agent on a run in the background, and stop the run if the agent fails."""
 
 import os
-import sqlite3
-from contextlib import closing
 
 from fastapi import BackgroundTasks
+from sqlalchemy import Connection
 
 from agent import harness
 from backend import db, records, runs
@@ -17,7 +16,7 @@ def agent_on() -> bool:
     return os.getenv("UNDERCOVER_AGENT") != "off"
 
 
-def start_run(conn: sqlite3.Connection, cap: int, tasks: BackgroundTasks) -> Run:
+def start_run(conn: Connection, cap: int, tasks: BackgroundTasks) -> Run:
     """Start a run capped at `cap` claims, worked by the queue agent."""
     run = runs.start(conn, cap)
     if agent_on():
@@ -25,7 +24,7 @@ def start_run(conn: sqlite3.Connection, cap: int, tasks: BackgroundTasks) -> Run
     return run
 
 
-def start_one(conn: sqlite3.Connection, claim_id: str, tasks: BackgroundTasks) -> Run:
+def start_one(conn: Connection, claim_id: str, tasks: BackgroundTasks) -> Run:
     """Start a run on one waiting claim, worked by a claim agent alone."""
     if records.status(conn, claim_id) != "waiting":
         raise Refused(f"{claim_id} is not waiting")
@@ -42,7 +41,7 @@ def run_queue(run_id: str) -> None:
         harness.run_queue(run_id)
     except Exception as error:  # noqa: BLE001
         reason = f"The agent failed: {error}"
-    with closing(db.connect()) as conn:
+    with db.connect() as conn:
         if runs.row(conn, run_id)["status"] == "running":
             runs.stop(conn, run_id, reason)
 
@@ -50,5 +49,5 @@ def run_queue(run_id: str) -> None:
 def run_one(run_id: str, claim_id: str) -> None:
     """Work one claim, then finish the run with its outcome."""
     outcome = harness.work_claim(run_id, claim_id)
-    with closing(db.connect()) as conn:
+    with db.connect() as conn:
         runs.close(conn, run_id, "finished", outcome)

@@ -172,18 +172,18 @@ The backend moves from `sqlite3` to SQLAlchemy Core, so each query is written on
 - `backend/records.py`, `rules.py`, `steps.py` and `runs.py`:
   - every query uses SQLAlchemy Core expressions (`select`, `insert`, `update`)
   - `json_extract` becomes a JSON-path expression on the `doc` column
-  - `ORDER BY rowid` becomes the start time
+  - `ORDER BY rowid` becomes `run_id`, which counts up. Start times are stored to the second, so two runs in one second would tie
   - the rules take a `sqlalchemy.Connection` and commit with `conn.begin()`
 - `backend/main.py` and its dependency use `Connection`. `backend/runner.py` opens connections from `db.engine()`.
 
 Success criteria:
 
-- [ ] Every existing backend and agent test passes unchanged on SQLite, with no network. `grep -rn "sqlite3" backend` finds nothing, since SQLite is now only a URL.
-- [ ] A test: with `DATABASE_URL` unset, `db.engine().dialect.name == "sqlite"`. With it set to a Postgres URL, the engine's URL uses `postgresql+psycopg`, its pool size is 4 and its options set `search_path=undercover`. This builds the engine and connects to nothing.
-- [ ] Live: `npm run reset` with `.env` prints "Database rebuilt from data/.". The Supabase MCP server's `list_tables` for schema `undercover` shows `claims`, `policies`, `customers`, `handlers`, `decisions`, `payments`, `sign_offs`, `steps`, `runs` and `todos`. `select status, count(*) from undercover.claims group by status` returns `waiting | 25`.
-- [ ] Live: with `npm run dev`, `curl http://localhost:8000/api/claims` returns 25 claims, and the dashboard's queue page shows them (Playwright MCP).
-- [ ] Code: SQLAlchemy is used only in the backend, and the engine and URL only in `backend/db.py`.
-- [ ] The pre-commit checks pass and the phase is committed.
+- [x] Every existing backend and agent test passes unchanged on SQLite, with no network. `grep -rn "sqlite3" backend` finds nothing, since SQLite is now only a URL.
+- [x] A test: with `DATABASE_URL` unset, `db.engine().dialect.name == "sqlite"`. With it set to a Postgres URL, the engine's URL uses `postgresql+psycopg`, its pool size is 4 and its options set `search_path=undercover`. This builds the engine and connects to nothing.
+- [x] Live: `npm run reset` with `.env` prints "Database rebuilt from data/.". The Supabase MCP server's `list_tables` for schema `undercover` shows `claims`, `policies`, `customers`, `handlers`, `decisions`, `payments`, `sign_offs`, `steps`, `runs` and `todos`. `select status, count(*) from undercover.claims group by status` returns `waiting | 25`.
+- [x] Live: with `npm run dev`, `curl http://localhost:8000/api/claims` returns 25 claims, and the dashboard's queue page shows them (Playwright MCP).
+- [x] Code: SQLAlchemy is used only in the backend, and the engine and URL only in `backend/db.py`.
+- [x] The pre-commit checks pass and the phase is committed.
 
 ## Phase 3: The backend's rules for work that pauses and repeats
 

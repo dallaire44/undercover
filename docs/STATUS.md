@@ -4,7 +4,7 @@ The UnderCover claims pilot, built from `docs/PLAN.md`, and the agent's harness,
 
 ## Built
 
-- `backend/`: FastAPI and SQLite. On first start it copies the claims, policies, customers and handlers from `data/` into `undercover.db` (or the file named by `UNDERCOVER_DB`). Read operations: `list_claims`, `get_claim`, `get_policy`, `get_claim_history`, `get_instructions` and `list_handlers`. The agents' instructions are `backend/instructions/queue.md` and `backend/instructions/claim.md`, served at `/api/instructions/queue` and `/api/instructions/claim`.
+- `backend/`: FastAPI on SQLAlchemy Core. With `DATABASE_URL` in its environment it uses Supabase Postgres through the session pooler, with every table in the `undercover` schema (the connection's search path) and at most 4 connections. Without it, as in the tests, it uses SQLite at `undercover.db` (or the file named by `UNDERCOVER_DB`). Each query is written once for both. On first start it copies the claims, policies, customers and handlers from `data/`. Read operations: `list_claims`, `get_claim`, `get_policy`, `get_claim_history`, `get_instructions` and `list_handlers`. The agents' instructions are `backend/instructions/queue.md` and `backend/instructions/claim.md`, served at `/api/instructions/queue` and `/api/instructions/claim`.
   - `backend/documents.py` splits the policy wording and the claims manual into numbered sections: `list_sections` (the contents of both), `search_documents` (the sections that best match a few words, each with its best line) and `read_section` (one section, headed such as `Claims manual, 9. Repeat claims`). The whole wording is no longer served.
   - The rules raise `backend.errors.NotFound` or `Refused`, which `backend/main.py` answers with 404 and 409; nothing else in the backend knows HTTP.
   - The rules are in `backend/rules.py`. `record_decision` takes approve, decline or refer. A decline or referral is decided with a payout of 0. An approval of $1,000 or less stays in progress until `pay_claim` pays it. An approval over $1,000 waits for sign-off: `pay_claim` is refused with 409 until `sign_off` records a handler, which then pays the claim.
@@ -41,7 +41,7 @@ The UnderCover claims pilot, built from `docs/PLAN.md`, and the agent's harness,
 
 - `npm run dev` starts the backend and the dashboard.
 - `uv run -m agent --cap 5` starts a run capped at five claims and `uv run -m agent --claim CLM-1001` a run on one claim, both through the API with the backend up. Each prints the to-do list as it changes, then how the run ended.
-- `npm run reset` rebuilds the database from `data/`: all 25 claims waiting. Run it once after pulling this build, since the tables changed.
+- `npm run reset` rebuilds the database from `data/`, on Supabase when `.env` has `DATABASE_URL`: all 25 claims waiting. Run it once after pulling this build, since the tables changed.
 - `npm run check` runs every check. `agent/tests/test_structure.py` and `backend/tests/test_structure.py` check the layout in `docs/CODE_STANDARDS.md`.
 
 ## Last live run
