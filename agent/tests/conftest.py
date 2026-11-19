@@ -5,7 +5,7 @@ from fastapi.testclient import TestClient
 from langchain_core.language_models.fake_chat_models import GenericFakeChatModel
 from langchain_core.messages import AIMessage
 
-from agent import api
+from agent import api, harness
 from backend import db
 from backend.main import app
 
@@ -15,6 +15,15 @@ class StubModel(GenericFakeChatModel):
 
     def bind_tools(self, tools, **kwargs):
         return self
+
+
+@pytest.fixture(autouse=True)
+def fresh_checkpoints(monkeypatch):
+    """A fresh in-memory checkpointer for each test, since run ids repeat."""
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    harness.checkpointer.cache_clear()
+    yield
+    harness.checkpointer.cache_clear()
 
 
 @pytest.fixture

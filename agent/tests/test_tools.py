@@ -23,7 +23,7 @@ def test_a_refusal_is_raised(client):
         tools.get_claim.invoke({"claim_id": "CLM-9999"})
 
 
-def test_blocked_payment(client):
+def test_a_payment_over_the_limit_is_refused(client):
     tools.record_decision.invoke(
         {
             "claim_id": "CLM-1003",
@@ -34,4 +34,4 @@ def test_blocked_payment(client):
         }
     )
     with pytest.raises(api.Refused, match="needs a handler's sign-off"):
-        tools.pay_claim.invoke({"claim_id": "CLM-1003", "amount": 3750.0})
+        api.pay_claim("CLM-1003", 3750.0)

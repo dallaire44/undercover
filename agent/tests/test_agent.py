@@ -1,11 +1,10 @@
 from typing import cast
 
 import pytest
-from langchain.agents.middleware.model_call_limit import ModelCallLimitExceededError
 from langchain_core.messages import AIMessage
 
-from agent import harness
-from agent.tests.conftest import StubModel, call, stub
+from agent import harness, tools
+from agent.tests.conftest import Recorder, StubModel, call, stub
 
 READS = [
     call("get_claim", claim_id="CLM-1001"),
@@ -32,25 +31,21 @@ def steps(client, claim_id):
     return client.get(f"/api/claims/{claim_id}/steps").json()
 
 
-def test_run_pays_a_small_approval(client):
-    replies = [
-        *READS,
-        decide("CLM-1001", 420.0),
-        call("pay_claim", claim_id="CLM-1001", amount=420.0),
-        AIMessage(content="Approved, $420.00 paid."),
-    ]
-    assert (
-        harness.run_claim("CLM-1001", "t1", stub(*replies)) == "Approved, $420.00 paid."
-    )
+def test_a_small_approval_is_paid_straight_away(client):
+    harness.run_claim("CLM-1001", "t1", stub(*READS, decide("CLM-1001", 420.0)))
     record = client.get("/api/claims/CLM-1001").json()
     assert record["status"] == "decided"
     assert record["payment"]["amount"] == 420.0
     trail = steps(client, "CLM-1001")
     kinds = [s["kind"] for s in trail]
-    assert kinds.count("tool_call") == 8
-    assert kinds.count("tool_result") == 6
-    assert trail[-1]["kind"] == "message"
+    assert kinds.count("tool_call") == 7
+    assert kinds.count("tool_result") + kinds.count("read") == 7
+    assert trail[-1]["text"] == "Paid $420.00."
     assert {s["thread_id"] for s in trail} == {"t1"}
+
+
+def test_the_model_cannot_pay():
+    assert "pay_claim" not in [t.name for t in tools.CLAIM_TOOLS]
 
 
 def test_sections_read_are_steps_of_their_own(client):
@@ -62,33 +57,13 @@ def test_sections_read_are_steps_of_their_own(client):
     ]
 
 
-def test_run_cannot_pay_over_the_limit(client):
-    replies = [
-        decide("CLM-1003", 3750.0),
-        call("pay_claim", claim_id="CLM-1003", amount=3750.0),
-        AIMessage(content="Waiting for sign-off."),
-    ]
-    harness.run_claim("CLM-1003", "t1", stub(*replies))
-    record = client.get("/api/claims/CLM-1003").json()
-    assert record["status"] == "awaiting_sign_off"
-    assert record["payment"] is None
-    results = [
-        s["text"] for s in steps(client, "CLM-1003") if s["kind"] == "tool_result"
-    ]
-    assert "needs a handler's sign-off" in results[-1]
-
-
-def test_system_prompt_is_the_claim_instructions(client, monkeypatch):
-    seen = {}
-    real = harness.create_agent
-
-    def spy(*args, **kwargs):
-        seen.update(kwargs)
-        return real(*args, **kwargs)
-
-    monkeypatch.setattr(harness, "create_agent", spy)
-    harness.run_claim("CLM-1001", "t1", stub(AIMessage(content="Nothing to do.")))
-    assert seen["system_prompt"] == client.get("/api/instructions/claim").text
+def test_system_prompt_is_the_claim_instructions(client):
+    recorder = Recorder(messages=iter([AIMessage(content="Nothing to do.")]))
+    recorder.seen.clear()
+    harness.run_claim("CLM-1001", "t1", recorder)
+    first = recorder.seen[0]
+    assert first[0].text == client.get("/api/instructions/claim").text
+    assert first[1].text == "Decide claim CLM-1001."
 
 
 class FlakyModel(StubModel):
@@ -112,7 +87,7 @@ def test_a_failed_model_call_is_retried(client, monkeypatch):
 
 def test_a_claim_that_loops_is_stopped(client):
     replies = [call("get_claim", claim_id="CLM-1001") for _ in range(40)]
-    with pytest.raises(ModelCallLimitExceededError):
+    with pytest.raises(harness.TooManyModelCalls):
         harness.run_claim("CLM-1001", "t1", stub(*replies))
     calls = [s for s in steps(client, "CLM-1001") if s["kind"] == "tool_call"]
     assert len(calls) == harness.CLAIM_MODEL_CALLS

@@ -240,27 +240,28 @@ The claim agent becomes the graph above, saved after every step, and the queue a
 - `agent/tools.py`: `pay_claim` leaves the claim agent's tools. Paying is now the **pay** node's job, and it's still in `agent/api.py`.
 - `backend/instructions/claim.md`: the goal and done change. Done is a decision recorded. The system pays an approval, after a handler's sign-off when one is needed. There's nothing left about paying or retrying a payment.
 - `agent/tests/test_graph.py` covers each new behavior.
+- `backend/db.py`: `reset()` drops the whole `undercover` schema on Postgres, so the agent's saved threads go with our tables. Run ids start again at RUN-0001 after a reseed, and the queue agent's thread is its run id, so a new run must never find an old run's checkpoint. Stop `npm run dev` before `npm run reset`.
 
 Success criteria. Every test uses a stub model and `InMemorySaver`:
 
-- [ ] **A small approval is paid straight away:** a stub that reads, calls `calculate_payout` and approves CLM-1001 at $420.00 ends with the claim `decided` and paid $420.00. The model is never offered `pay_claim`.
-- [ ] **The pause before a payout over the limit:** approving CLM-1003 at $3,750.00 leaves the claim `awaiting_sign_off` with no payment. The thread's `next` is `("sign_off",)`, and its interrupt value has the claim id and the payout. The steps end with "Waiting for a handler's sign-off".
-- [ ] **A sign-off resumes the claim and pays it once:** after `sign_off` through the API, `run_claim` on the same thread pays $3,750.00 with `signed_off_by: "Priya Raman"`. The model isn't called again. Running it a second time changes nothing: one payment, still `decided`.
-- [ ] **Stopped partway, carried on from its last step:**
+- [x] **A small approval is paid straight away:** a stub that reads, calls `calculate_payout` and approves CLM-1001 at $420.00 ends with the claim `decided` and paid $420.00. The model is never offered `pay_claim`.
+- [x] **The pause before a payout over the limit:** approving CLM-1003 at $3,750.00 leaves the claim `awaiting_sign_off` with no payment. The thread's `next` is `("sign_off",)`, and its interrupt value has the claim id and the payout. The steps end with "Waiting for a handler's sign-off".
+- [x] **A sign-off resumes the claim and pays it once:** after `sign_off` through the API, `run_claim` on the same thread pays $3,750.00 with `signed_off_by: "Priya Raman"`. The model isn't called again. Running it a second time changes nothing: one payment, still `decided`.
+- [x] **Stopped partway, carried on from its last step:**
   1. A stub raises `KeyboardInterrupt` after the claim agent's first three tool rounds.
   2. `carry_on()` carries the claim on with the same `thread_id` and `attempts` still 0.
   3. The stub's next model call sees the earlier tool results. The claim has one decision and isn't worked again from the start.
-- [ ] **An error starts afresh:** a claim agent that raises a `RuntimeError` is returned by `work_claim` (attempts 1, back to `waiting`, thread cleared). The next `work_claim` runs on a new thread from the first message.
-- [ ] **A repeated decision counts as done:** the **tools** node, run again after a stop just after `record_decision`, gets the claim back and moves on to **pay**. There's one decision and one payment.
-- [ ] **The middleware's jobs, now in the graph:**
+- [x] **An error starts afresh:** a claim agent that raises a `RuntimeError` is returned by `work_claim` (attempts 1, back to `waiting`, thread cleared). The next `work_claim` runs on a new thread from the first message.
+- [x] **A repeated decision counts as done:** the **tools** node, run again after a stop just after `record_decision`, gets the claim back and moves on to **pay**. There's one decision and one payment.
+- [x] **The middleware's jobs, now in the graph:**
   - a refused call, such as paying before a decision, comes back to the model as text
   - a stub that raises a provider error once still decides, so `RetryPolicy` retried
   - a stub that never stops calling tools raises after 30 model calls
   - every tool call and result is a step on the claim's thread
-- [ ] **A stopped queue run is finished by the next run:** a queue stub stops after `work_claim` on CLM-1001. `carry_on()` resumes it from its checkpoint, and it finishes the run with its summary, without taking CLM-1001 twice.
-- [ ] The existing harness and queue tests pass, updated for the graph.
-- [ ] Code: the graph, its nodes and edges, and the checkpointer are in `agent/harness.py`. The tools are in `agent/tools.py`. `test_structure.py` gains a check that `langgraph.checkpoint` is imported only in `agent/harness.py`.
-- [ ] The pre-commit checks pass and the phase is committed.
+- [x] **A stopped queue run is finished by the next run:** a queue stub stops after `work_claim` on CLM-1001. `carry_on()` resumes it from its checkpoint, and it finishes the run with its summary, without taking CLM-1001 twice.
+- [x] The existing harness and queue tests pass, updated for the graph.
+- [x] Code: the graph, its nodes and edges, and the checkpointer are in `agent/harness.py`. The tools are in `agent/tools.py`. `test_structure.py` gains a check that `langgraph.checkpoint` is imported only in `agent/harness.py`.
+- [x] The pre-commit checks pass and the phase is committed.
 
 ## Phase 5: The agent's service, and a sign-off that reaches it
 

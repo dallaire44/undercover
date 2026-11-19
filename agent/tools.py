@@ -146,12 +146,6 @@ def record_decision(
     return json.dumps(api.record_decision(claim_id, body))
 
 
-@tool
-def pay_claim(claim_id: str, amount: float) -> str:
-    """Pay an approved claim exactly the amount of its payout."""
-    return json.dumps(api.pay_claim(claim_id, amount))
-
-
 CLAIM_TOOLS = [
     get_claim,
     get_policy,
@@ -161,7 +155,6 @@ CLAIM_TOOLS = [
     read_section,
     calculate_payout,
     record_decision,
-    pay_claim,
 ]
 
 

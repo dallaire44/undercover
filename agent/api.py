@@ -33,6 +33,10 @@ def send(method: str, path: str, **kwargs: Any) -> httpx.Response:
     return response
 
 
+def list_claims() -> list[Json]:
+    return send("GET", "/api/claims").json()
+
+
 def get_claim(claim_id: str) -> Json:
     return send("GET", f"/api/claims/{claim_id}").json()
 

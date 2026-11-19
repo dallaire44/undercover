@@ -195,6 +195,14 @@ def init() -> None:
 
 
 def reset() -> None:
-    """Drop every table and seed the database again."""
-    metadata.drop_all(engine())
+    """Drop every table and seed the database again.
+
+    On Postgres this drops the whole schema, so the agent's saved threads go with
+    our tables, and no run after a reseed carries on a thread from before it.
+    """
+    with engine().begin() as conn:
+        if conn.dialect.name == "postgresql":
+            conn.execute(text(f"DROP SCHEMA IF EXISTS {SCHEMA} CASCADE"))
+        else:
+            metadata.drop_all(conn)
     init()

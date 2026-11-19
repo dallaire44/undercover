@@ -1,25 +1,48 @@
-"""The harness: the model, its middleware, the queue agent and the claim agents."""
+"""The harness: the model, the claim agent's graph, the queue agent, and running them.
+
+The claim agent is a LangGraph graph saved after every step, so it can wait for a
+handler's sign-off and carry on after a restart. The queue agent is `create_agent`
+with the same checkpointer.
+"""
 
 import json
 import os
-import uuid
+import threading
 from collections.abc import Callable, Iterator
-from typing import Any, cast
+from dataclasses import dataclass
+from functools import cache
+from typing import Annotated, Any, TypedDict, cast
 
 from langchain.agents import create_agent
 from langchain.agents.middleware import (
     AgentMiddleware,
-    ModelCallLimitMiddleware,
     ModelRetryMiddleware,
     wrap_tool_call,
 )
 from langchain.agents.middleware.types import ToolCallRequest
-from langchain_core.language_models import BaseChatModel
-from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
-from langchain_core.runnables import RunnableConfig
+from langchain_core.language_models import BaseChatModel, LanguageModelInput
+from langchain_core.messages import (
+    AIMessage,
+    AnyMessage,
+    BaseMessage,
+    HumanMessage,
+    SystemMessage,
+    ToolMessage,
+)
+from langchain_core.runnables import Runnable, RunnableConfig
 from langchain_openai import ChatOpenAI
 from langfuse.langchain import CallbackHandler
-from langgraph.types import Command
+from langgraph.checkpoint.base import BaseCheckpointSaver
+from langgraph.checkpoint.memory import InMemorySaver
+from langgraph.checkpoint.postgres import PostgresSaver
+from langgraph.graph import END, START, StateGraph
+from langgraph.graph.message import add_messages
+from langgraph.graph.state import CompiledStateGraph
+from langgraph.prebuilt import ToolNode
+from langgraph.runtime import Runtime
+from langgraph.types import Command, RetryPolicy, interrupt
+from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
 from pydantic import SecretStr
 
 from agent import api, tools
@@ -32,6 +55,8 @@ CLAIM_RETRIES = 2
 QUEUE_RETRIES = 5
 RETRY_DELAY_SECONDS = 2.0
 ERROR_CHARS = 300
+CHECKPOINT_CONNECTIONS = 4
+SCHEMA = "undercover"
 VERDICTS = {"decline": "declined", "refer": "referred"}
 
 
@@ -48,38 +73,24 @@ def model() -> ChatOpenAI:
     )
 
 
-@wrap_tool_call
-def refusals_as_text(
-    request: ToolCallRequest,
-    handler: Callable[[ToolCallRequest], ToolMessage | Command[Any]],
-) -> ToolMessage | Command[Any]:
-    """Give a refused backend call back to the model as text, so it can put it right."""
-    try:
-        return handler(request)
-    except api.Refused as refusal:
-        call = request.tool_call
-        return ToolMessage(str(refusal), tool_call_id=call["id"], name=call["name"])
-
-
-def retries(times: int) -> ModelRetryMiddleware:
-    """Retry a failed model call `times` times with backoff, then raise."""
-    return ModelRetryMiddleware(
-        max_retries=times, initial_delay=RETRY_DELAY_SECONDS, on_failure="error"
+@cache
+def checkpointer() -> BaseCheckpointSaver:
+    """Save every step to Supabase when DATABASE_URL is set, or in memory otherwise."""
+    url = os.getenv("DATABASE_URL")
+    if not url:
+        return InMemorySaver()
+    pool = ConnectionPool(
+        url,
+        min_size=1,
+        max_size=CHECKPOINT_CONNECTIONS,
+        kwargs={
+            "autocommit": True,
+            "prepare_threshold": 0,
+            "row_factory": dict_row,
+            "options": f"-c search_path={SCHEMA}",
+        },
     )
-
-
-def claim_middleware() -> list[AgentMiddleware[Any, Any]]:
-    """Return refusals as text, retry failed model calls, stop a claim that loops."""
-    return [
-        refusals_as_text,
-        retries(CLAIM_RETRIES),
-        ModelCallLimitMiddleware(run_limit=CLAIM_MODEL_CALLS, exit_behavior="error"),
-    ]
-
-
-def queue_middleware() -> list[AgentMiddleware[Any, Any]]:
-    """Return refusals as text, and retry more often, since a failure stops the run."""
-    return [refusals_as_text, retries(QUEUE_RETRIES)]
+    return PostgresSaver(cast(Any, pool))
 
 
 def tracing(claim_id: str, thread_id: str) -> RunnableConfig:
@@ -90,6 +101,124 @@ def tracing(claim_id: str, thread_id: str) -> RunnableConfig:
         "callbacks": [CallbackHandler()],
         "metadata": {"langfuse_session_id": f"{claim_id} {thread_id}"},
     }
+
+
+def refused_as_text(
+    request: ToolCallRequest,
+    execute: Callable[[ToolCallRequest], ToolMessage | Command[Any]],
+) -> ToolMessage | Command[Any]:
+    """Give a refused backend call back to the model as text, so it can put it right."""
+    try:
+        return execute(request)
+    except api.Refused as refusal:
+        call = request.tool_call
+        return ToolMessage(str(refusal), tool_call_id=call["id"], name=call["name"])
+
+
+class TooManyModelCalls(RuntimeError):
+    """A claim agent went past its limit on model calls."""
+
+
+class ClaimState(TypedDict):
+    """What the graph keeps for one attempt on a claim."""
+
+    messages: Annotated[list[AnyMessage], add_messages]
+    claim_id: str
+    model_calls: int
+    decision: str | None
+    status: str
+    payout: float
+    signed_off_by: str
+    paid: float
+
+
+@dataclass
+class ClaimContext:
+    """What every node of a claim graph shares: the model and its instructions."""
+
+    model: Runnable[LanguageModelInput, BaseMessage]
+    instructions: SystemMessage
+
+
+type ClaimGraph = CompiledStateGraph[ClaimState, ClaimContext, ClaimState, ClaimState]
+
+
+def agent(state: ClaimState, runtime: Runtime[ClaimContext]) -> dict[str, Any]:
+    """Call the model with the conversation so far, up to the limit on model calls."""
+    if state["model_calls"] >= CLAIM_MODEL_CALLS:
+        raise TooManyModelCalls(f"Stopped after {CLAIM_MODEL_CALLS} model calls.")
+    context = runtime.context
+    reply = context.model.invoke([context.instructions, *state["messages"]])
+    return {"messages": [reply], "model_calls": state["model_calls"] + 1}
+
+
+def check(state: ClaimState) -> dict[str, Any]:
+    """Read the claim back from the backend after a decision."""
+    claim = api.get_claim(state["claim_id"])
+    decision = claim["decision"] or {"decision": None, "payout": 0.0}
+    return {
+        "status": claim["status"],
+        "decision": decision["decision"],
+        "payout": decision["payout"],
+    }
+
+
+def sign_off(state: ClaimState) -> dict[str, Any]:
+    """Wait for a handler to sign off a payout over the limit."""
+    answer = interrupt({"claim_id": state["claim_id"], "payout": state["payout"]})
+    return {"signed_off_by": answer["handler_name"]}
+
+
+def pay(state: ClaimState) -> dict[str, Any]:
+    """Pay the approved payout. A repeat after a restart counts as done."""
+    api.pay_claim(state["claim_id"], state["payout"])
+    return {"paid": state["payout"]}
+
+
+def after_agent(state: ClaimState) -> str:
+    """Run the tools the model asked for, or end when it asked for none."""
+    last = state["messages"][-1]
+    return "tools" if isinstance(last, AIMessage) and last.tool_calls else END
+
+
+def after_tools(state: ClaimState) -> str:
+    """Check the claim after a decision, or go back to the model."""
+    calls = [m for m in state["messages"] if isinstance(m, AIMessage)][-1].tool_calls
+    decided = any(c["name"] == "record_decision" for c in calls)
+    return "check" if decided else "agent"
+
+
+def after_check(state: ClaimState) -> str:
+    """Wait for a sign-off, pay, or end, as the backend says."""
+    if state["decision"] is None:
+        return "agent"
+    if state["status"] == "awaiting_sign_off":
+        return "sign_off"
+    return "pay" if state["decision"] == "approve" else END
+
+
+def claim_graph() -> ClaimGraph:
+    """Build the claim agent's graph, saved after every step."""
+    retry = RetryPolicy(
+        max_attempts=CLAIM_RETRIES + 1, initial_interval=RETRY_DELAY_SECONDS
+    )
+    builder = StateGraph(ClaimState, context_schema=ClaimContext)
+    builder.add_node("agent", agent, retry_policy=retry)
+    builder.add_node(
+        "tools", ToolNode(tools.CLAIM_TOOLS, wrap_tool_call=refused_as_text)
+    )
+    builder.add_node("check", check)
+    builder.add_node("sign_off", sign_off)
+    builder.add_node("pay", pay)
+    builder.add_edge(START, "agent")
+    builder.add_conditional_edges("agent", after_agent, ["tools", END])
+    builder.add_conditional_edges("tools", after_tools, ["check", "agent"])
+    builder.add_conditional_edges(
+        "check", after_check, ["agent", "sign_off", "pay", END]
+    )
+    builder.add_edge("sign_off", "pay")
+    builder.add_edge("pay", END)
+    return builder.compile(checkpointer=checkpointer())
 
 
 def steps_of(message: BaseMessage) -> list[tuple[str, str]]:
@@ -106,28 +235,68 @@ def steps_of(message: BaseMessage) -> list[tuple[str, str]]:
     return found
 
 
-def run_claim(claim_id: str, thread_id: str, llm: BaseChatModel | None = None) -> str:
-    """Run a claim agent on one claim, posting each step, and return its last reply."""
-    agent = create_agent(
-        llm or model(),
-        tools=tools.CLAIM_TOOLS,
-        system_prompt=api.get_instructions("claim"),
-        middleware=claim_middleware(),
+def steps_of_update(node: str, update: Any) -> list[tuple[str, str]]:
+    """Turn one node's update into the steps to show the handler."""
+    if node == "__interrupt__":
+        return [("message", "Waiting for a handler's sign-off.")]
+    if node == "sign_off":
+        return [("message", f"Signed off by {update['signed_off_by']}.")]
+    if node == "pay":
+        return [("message", f"Paid ${update['paid']:,.2f}.")]
+    return [s for m in (update or {}).get("messages", []) for s in steps_of(m)]
+
+
+def starting_point(
+    graph: ClaimGraph, config: RunnableConfig, claim_id: str
+) -> tuple[bool, Any]:
+    """Say whether a claim's thread has work to do, and what to stream into it.
+
+    A new thread starts with the claim, a thread waiting for a sign-off resumes with
+    it once it is recorded, and a thread stopped partway carries on from its last step.
+    """
+    saved = graph.get_state(config)
+    if saved.interrupts:
+        signed = api.get_claim(claim_id)["sign_off"]
+        return bool(signed), Command(resume=signed)
+    if saved.next:
+        return True, None
+    if saved.values:
+        return False, None
+    first = HumanMessage(f"Decide claim {claim_id}.")
+    return True, {"messages": [first], "claim_id": claim_id, "model_calls": 0}
+
+
+def post_steps(claim_id: str, thread_id: str, stream: Iterator[Any]) -> None:
+    """Post every step of a claim's graph on the claim, as it happens."""
+    for chunk in stream:
+        for node, update in chunk["data"].items():
+            for kind, text in steps_of_update(node, update):
+                api.add_step(claim_id, thread_id, kind, text)
+
+
+def run_claim(claim_id: str, thread_id: str, llm: BaseChatModel | None = None) -> None:
+    """Start or carry on a claim's thread, posting each step, until it ends or waits."""
+    graph = claim_graph()
+    config: RunnableConfig = {
+        **tracing(claim_id, thread_id),
+        "configurable": {"thread_id": thread_id},
+    }
+    ready, start = starting_point(graph, config, claim_id)
+    if not ready:
+        return
+    context = ClaimContext(
+        model=(llm or model()).bind_tools(tools.CLAIM_TOOLS),
+        instructions=SystemMessage(api.get_instructions("claim")),
     )
-    stream = agent.stream(
-        {"messages": [{"role": "user", "content": f"Decide claim {claim_id}."}]},
-        tracing(claim_id, thread_id),
+    stream = graph.stream(
+        start,
+        config,
+        context=context,
         stream_mode="updates",
         version="v2",
+        durability="sync",
     )
-    reply = ""
-    for chunk in cast(Iterator[dict[str, Any]], stream):
-        for update in chunk["data"].values():
-            for message in (update or {}).get("messages", []):
-                for kind, text in steps_of(message):
-                    api.add_step(claim_id, thread_id, kind, text)
-                    reply = text if kind == "message" else reply
-    return reply
+    post_steps(claim_id, thread_id, stream)
 
 
 def outcome(record: api.Json) -> str:
@@ -140,14 +309,8 @@ def outcome(record: api.Json) -> str:
     return VERDICTS[decision["decision"]]
 
 
-def work_claim(run_id: str, claim_id: str) -> str:
-    """Take a claim into the run, work it with a fresh claim agent, report one line."""
-    try:
-        api.take_claim(run_id, claim_id)
-    except api.Refused as refusal:
-        return f"{claim_id}: not taken. {refusal.detail}"
-    thread_id = str(uuid.uuid4())
-    api.add_step(claim_id, thread_id, "message", "Agent started")
+def attempt(claim_id: str, thread_id: str) -> str:
+    """Work or carry on a claim on its thread, and return it to the queue on failure."""
     problem = "The agent finished without completing the claim."
     try:
         run_claim(claim_id, thread_id)
@@ -162,15 +325,60 @@ def work_claim(run_id: str, claim_id: str) -> str:
     return f"{claim_id}: failed, back in the queue to try again. {problem}"
 
 
+def work_claim(run_id: str, claim_id: str) -> str:
+    """Take a claim into the run, or carry on one it holds, and report one line."""
+    record = api.get_claim(claim_id)
+    if record["run_id"] == run_id and record["status"] in ("decided", "in_progress"):
+        if record["status"] == "decided":
+            return f"{claim_id}: {outcome(record)}"
+        return attempt(claim_id, record["thread_id"])
+    if record["run_id"] == run_id and record["status"] == "awaiting_sign_off":
+        return f"{claim_id}: {outcome(record)}"
+    try:
+        thread_id = api.take_claim(run_id, claim_id)["thread_id"]
+    except api.Refused as refusal:
+        return f"{claim_id}: not taken. {refusal.detail}"
+    api.add_step(claim_id, thread_id, "message", "Agent started")
+    return attempt(claim_id, thread_id)
+
+
+CARRYING_ON = threading.Lock()
+
+
+def carry_on() -> None:
+    """Carry on each claim left in progress: stopped partway, or signed off."""
+    with CARRYING_ON:
+        for claim in api.list_claims():
+            if claim["status"] == "in_progress" and claim["thread_id"]:
+                attempt(claim["claim_id"], claim["thread_id"])
+
+
+def queue_middleware() -> list[AgentMiddleware[Any, Any]]:
+    """Return refusals as text, and retry more often, since a failure stops the run."""
+    return [
+        wrap_tool_call(refused_as_text),
+        ModelRetryMiddleware(
+            max_retries=QUEUE_RETRIES,
+            initial_delay=RETRY_DELAY_SECONDS,
+            on_failure="error",
+        ),
+    ]
+
+
 def run_queue(run_id: str, llm: BaseChatModel | None = None) -> str:
-    """Run the queue agent on a run, and return its last reply."""
-    agent = create_agent(
+    """Run the queue agent on a run, or carry on a run that was stopped."""
+    agent_ = create_agent(
         llm or model(),
         tools=tools.QUEUE_TOOLS,
         system_prompt=api.get_instructions("queue"),
         middleware=queue_middleware(),
         context_schema=tools.RunContext,
+        checkpointer=checkpointer(),
     )
+    config: RunnableConfig = {"configurable": {"thread_id": run_id}}
     request = {"role": "user", "content": f"Work the queue for run {run_id}."}
-    result = agent.invoke({"messages": [request]}, context=tools.RunContext(run_id))
+    start = None if agent_.get_state(config).next else {"messages": [request]}
+    result = agent_.invoke(
+        cast(Any, start), config, context=tools.RunContext(run_id), durability="sync"
+    )
     return result["messages"][-1].text
