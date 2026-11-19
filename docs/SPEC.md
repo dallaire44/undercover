@@ -15,6 +15,10 @@ We want an AI agent, the UnderCover Agent, to work the queue the way a handler d
 - work out the payout when it approves
 - explain the decision in two or three sentences, along with the relevant section of the policy
 
+It works out each payout with our payout rules. When it approves a payout over $1,000, it stops and waits for a handler, keeping everything it has worked out. As soon as a handler signs off on the dashboard, it picks the claim up from where it stopped and pays it, and the payment records who signed off and when. Between the sign-off and the payment the claim shows as in progress, and if the agent isn't running at that moment it picks the claim up the next time it runs. A handler can only sign off for now.
+
+If the agent is stopped partway through a claim, by a crash, a restart or Ctrl-C, it carries on with that claim from where it got to the next time it runs, and that doesn't count as a new attempt. A claim that fails with an error goes back in the queue and starts afresh. A run that was stopped is finished the next time the agent runs.
+
 Our goal is to handle claims straight through, as accurately as our handlers do.
 
 ## What the team needs to see

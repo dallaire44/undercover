@@ -1,12 +1,14 @@
 # Process
 
-`uv sync` and `npm install` at the repo root install everything, including a git pre-commit hook. `npm run dev` starts the backend and the dashboard.
+`uv sync` and `npm install` at the repo root install everything, including a git pre-commit hook. `npm run dev` starts the backend, the agent's service and the dashboard, and passes `.env` to the backend and the agent. `npm run reset` reseeds the database, on Supabase when `.env` has `DATABASE_URL`; stop `npm run dev` first.
 
 `npm run check` runs every check:
 
 - Python: ruff (lint and format), pyright, and pytest with 80% coverage
 - TypeScript: ESLint, Prettier, tsc, and vitest with 80% coverage
-- Playwright end-to-end tests
+- Playwright end-to-end tests, with a stand-in for the agent's service on port 8003
+
+`npm run check` needs no `.env`: the tests use SQLite and a stub model, and never reach Supabase, Langfuse or OpenRouter.
 
 The pre-commit hook runs the format, lint, type and unit test checks on every commit.
 

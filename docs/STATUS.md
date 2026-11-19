@@ -1,6 +1,6 @@
 # Status
 
-The UnderCover claims pilot, built from `docs/PLAN.md`, and the agent's harness, built from `docs/PLAN_HARNESS.md`: one run works the queue up to a cap, with a to-do list, a fresh claim agent per claim, the claims manual looked up section by section, and failed claims retried or left for a handler.
+The UnderCover claims pilot, built from `docs/PLAN.md`, and the agent's harness, built from `docs/PLAN_HARNESS.md`: one run works the queue up to a cap, with a to-do list, a fresh claim agent per claim, the claims manual looked up section by section, and failed claims retried or left for a handler. Then durable state, built from `docs/PLAN_DURABLE.md`: the payout rules in the backend, Langfuse tracing, our records on Supabase, a claim agent that waits for a sign-off and carries on after a stop, and the agent in a service of its own.
 
 ## Built
 
@@ -38,8 +38,8 @@ The UnderCover claims pilot, built from `docs/PLAN.md`, and the agent's harness,
 | State | Meaning |
 |---|---|
 | `waiting` | In the queue, not yet worked |
-| `in_progress` | The agent is working on it |
-| `awaiting_sign_off` | Approved over $1,000; payment on hold until a handler signs off |
+| `in_progress` | The agent is working on it, or a handler has signed off and the agent is about to pay it |
+| `awaiting_sign_off` | Approved over $1,000; the agent waits, and the payment is on hold, until a handler signs off |
 | `decided` | Declined, referred, or approved and paid |
 | `needs_handler` | Failed twice; left for a handler |
 
@@ -52,7 +52,16 @@ The UnderCover claims pilot, built from `docs/PLAN.md`, and the agent's harness,
 
 ## Last live run
 
-After the agent was rebuilt as `api`, `tools` and `harness` with goal-based instructions, and a reseed, a run capped at five claims on `deepseek/deepseek-v4.1-flash` worked CLM-1001, CLM-1008, CLM-1010, CLM-1011 and CLM-1018 in about two minutes, with the same decisions as before the rebuild: three approved (CLM-1001 paid $420.00; CLM-1008 $2,240.00 and CLM-1011 $1,150.00 waiting for sign-off, each after its payment came back refused as text), CLM-1010 declined and CLM-1018 referred, with no failures. The other 20 claims stayed waiting. Each claim agent read 8 to 12 of the 26 sections. A first run marked the referral "left for a handler" on the to-do list; `queue.md` now says that status is only for a claim that failed twice, and the second run marked it done.
+After the durable state build, on Supabase with `deepseek/deepseek-v4.1-flash`:
+
+- **Five claims, and a sign-off.** After a reseed, `uv run -m agent --cap 5` worked CLM-1001, CLM-1008, CLM-1010, CLM-1011 and CLM-1018 and finished. CLM-1001 was approved and paid $420.00, CLM-1010 declined and CLM-1018 referred. CLM-1008 ($2,240.00) and CLM-1011 ($1,150.00) were approved and waited for sign-off, with no payment. The other 20 claims stayed waiting, none was left in progress, and none failed. Signed off by Dana Whitfield on the dashboard (Playwright MCP), CLM-1008 showed "In progress" and then, about two seconds after the click, "Paid $2,240.00 on Nov 19, 2026, 02:23 UTC, signed off by Dana Whitfield." The payment was recorded one second after the sign-off.
+- **Connections.** During the run, Supabase counted 6 and then 7 connections whose user is postgres in `pg_stat_activity`, under the 12 allowed.
+- **Langfuse.** CLM-1008's session, `CLM-1008 <thread>`, holds two traces: its work in the queue run (54 observations, before the sign-off) and the resume that paid it (3 observations, after). A first try showed that a claim worked inside the queue agent's run was traced with no session; the session is now set with `propagate_attributes`.
+- **Stopped and carried on.** After a reseed, `uv run -m agent --claim CLM-1003` was stopped with all of `npm run dev` after six steps: the claim was in progress on its thread, with 0 attempts, no decision and six checkpoints saved. When `npm run dev` started again, the agent's service carried the claim on, on the same thread with 0 attempts and one `record_decision`, to an approval of $3,750.00 waiting for sign-off, and finished the run with "CLM-1003: approved, $3,750.00 waiting for sign-off". A first try finished the run with a fresh queue agent's summary saying nothing was worked; a run on one claim is now finished with its claim's line.
+
+## Known issue
+
+Stopping `npm run dev` sometimes leaves the agent's service holding port 8002, so the next `npm run dev` fails with "Address already in use". The service's worker exits, but uvicorn's `--reload` supervisor stays blocked on a lock: its SIGTERM handler calls `threading.Event.set()` while the main thread may hold the same event's lock in `Event.wait()`. This is in uvicorn 0.54.0's reloader, not in the product, and the service without `--reload` doesn't use it. Until it is settled, end the leftover process (on Linux or a Mac, `kill -9` the process listening on 8002).
 
 ## Commit guard
 

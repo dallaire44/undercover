@@ -325,20 +325,20 @@ Success criteria:
 
 Success criteria:
 
-- [ ] Run 1 works five claims and finishes. The other 20 stay `waiting`. No claim is left `in_progress`, and no payment over $1,000 is made without a sign-off.
-- [ ] At least one claim in run 1 waits for sign-off. Signed off on its claim page through the Playwright MCP server, it shows "In progress" and then paid, with the handler and the time, within five seconds.
-- [ ] During run 1, `select count(*) from pg_stat_activity where usename = 'postgres'` through the Supabase MCP server returns 12 or fewer.
-- [ ] Through Langfuse's v2 observations API, the held claim's session `<claim id> <thread id>` has traces from before the sign-off and after it.
-- [ ] Run 2:
+- [x] Run 1 works five claims and finishes. (Run twice: the first run showed that a claim worked inside the queue agent's run was traced with no Langfuse session, fixed with `propagate_attributes`, so the run was repeated after a reseed.) The other 20 stay `waiting`. No claim is left `in_progress`, and no payment over $1,000 is made without a sign-off.
+- [x] At least one claim in run 1 waits for sign-off. Signed off on its claim page through the Playwright MCP server, it shows "In progress" and then paid, with the handler and the time, within five seconds.
+- [x] During run 1, `select count(*) from pg_stat_activity where usename = 'postgres'` through the Supabase MCP server returns 12 or fewer.
+- [x] Through Langfuse's v2 observations API, the held claim's session `<claim id> <thread id>` has traces from before the sign-off and after it.
+- [x] Run 2:
   1. Start a run on a waiting claim with `uv run -m agent --claim CLM-…`.
   2. Once its first steps show, stop `npm run dev` with Ctrl-C, then start it again.
-  3. The service carries the claim on with the same `thread_id`, its `attempts` unchanged, and one decision. The run finishes, and no claim is left `in_progress`.
-- [ ] `docs/SPEC.md`, `docs/TECH_STACK.md`, `docs/PROCESS.md` and `docs/STATUS.md` describe the product as built.
-- [ ] With `.env` moved out of the way, `npm run check` is green:
+  3. The service carries the claim on with the same `thread_id`, its `attempts` unchanged, and one decision. The run finishes, and no claim is left `in_progress`. (The first try finished the run with a fresh queue agent's summary saying nothing was worked; a run on one claim is now finished with its claim's line, and the repeat passed.)
+- [x] `docs/SPEC.md`, `docs/TECH_STACK.md`, `docs/PROCESS.md` and `docs/STATUS.md` describe the product as built.
+- [x] With `.env` moved out of the way, `npm run check` is green:
   - ruff
   - pyright
   - pytest at or above 80% coverage
   - Prettier, ESLint and tsc
   - vitest at or above 80% coverage
   - Playwright
-- [ ] The phase is committed, and the live runs' results are reported to you.
+- [x] The phase is committed, and the live runs' results are reported to you.
