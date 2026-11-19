@@ -10,6 +10,15 @@ State = Literal[
 Verdict = Literal["approve", "decline", "refer"]
 RunState = Literal["running", "finished", "stopped"]
 TodoState = Literal["to_do", "in_progress", "done", "left_for_handler"]
+Benefit = Literal[
+    "trip_cancellation",
+    "trip_interruption",
+    "trip_delay",
+    "baggage_delay",
+    "baggage",
+    "passport",
+    "emergency_medical",
+]
 
 
 class ClaimCore(BaseModel):
@@ -168,3 +177,37 @@ class Run(BaseModel):
     finished_at: str | None
     claim_ids: list[str]
     todos: list[Todo]
+
+
+class PayoutLine(BaseModel):
+    """One covered item or expense on a claim."""
+
+    description: str
+    amount: float = Field(
+        description="The total claimed for the line in US dollars, before limits"
+    )
+    quantity: int = Field(ge=1, description="How many separate items the line holds")
+    kind: Literal[
+        "item", "electronics", "cash", "expense", "hotel", "meals_without_receipts"
+    ]
+    nights: int = Field(ge=0, description="For a hotel, the nights; otherwise 0")
+    hours: float = Field(
+        ge=0, description="For meals without receipts, the delay in hours; otherwise 0"
+    )
+
+
+class PayoutRequest(BaseModel):
+    benefit: Benefit
+    lines: list[PayoutLine]
+    paid_by_others: float = Field(ge=0)
+
+
+class PayoutStep(BaseModel):
+    step: str
+    amount: float
+
+
+class Payout(BaseModel):
+    calculation: list[PayoutStep]
+    payout: float
+    needs_sign_off: bool

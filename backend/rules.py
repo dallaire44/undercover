@@ -13,11 +13,7 @@ from backend.models import (
     SignOffRequest,
     State,
 )
-
-
-def approval_limit() -> float:
-    """Return the payout above which a handler must sign off."""
-    return db.load("company")["payout_approval_limit"]
+from backend.payouts import approval_limit
 
 
 def set_status(conn: sqlite3.Connection, claim_id: str, state: State) -> None:

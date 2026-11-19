@@ -9,7 +9,7 @@ from typing import Literal
 from fastapi import BackgroundTasks, Depends, FastAPI, Request
 from fastapi.responses import JSONResponse, PlainTextResponse
 
-from backend import db, documents, records, rules, runner, runs, steps
+from backend import db, documents, payouts, records, rules, runner, runs, steps
 from backend.errors import NotFound, Refused
 from backend.models import (
     ClaimDetail,
@@ -21,6 +21,8 @@ from backend.models import (
     Handler,
     Payment,
     PaymentRequest,
+    Payout,
+    PayoutRequest,
     Policy,
     ReturnRequest,
     Run,
@@ -83,6 +85,15 @@ def get_claim(claim_id: str, conn: sqlite3.Connection = Db) -> ClaimDetail:
 def get_policy(policy_id: str, conn: sqlite3.Connection = Db) -> Policy:
     """Get a policy with its plan, trip and travelers."""
     return records.get_policy(conn, policy_id)
+
+
+@app.post("/api/policies/{policy_id}/payout", operation_id="calculate_payout")
+def calculate_payout(
+    policy_id: str, request: PayoutRequest, conn: sqlite3.Connection = Db
+) -> Payout:
+    """Work out the payout on an approved claim with UnderCover's payout rules."""
+    policy = records.document(conn, "policies", policy_id)
+    return payouts.work_out_payout(policy, request)
 
 
 @app.get("/api/customers/{customer_id}/history", operation_id="get_claim_history")

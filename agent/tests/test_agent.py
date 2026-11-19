@@ -1,3 +1,5 @@
+from typing import cast
+
 import pytest
 from langchain.agents.middleware.model_call_limit import ModelCallLimitExceededError
 from langchain_core.messages import AIMessage
@@ -129,3 +131,44 @@ def test_model_name(monkeypatch):
 def test_blank_messages_are_not_steps():
     message = AIMessage(content="\n\n", tool_calls=[])
     assert harness.steps_of(message) == []
+
+
+def test_the_payout_tool_works_out_the_payout(client):
+    shirts = {
+        "description": "Three T-shirts",
+        "amount": 74.97,
+        "quantity": 3,
+        "kind": "item",
+        "nights": 0,
+        "hours": 0,
+    }
+    replies = [
+        call(
+            "calculate_payout",
+            policy_id="POL-2007",
+            benefit="baggage",
+            lines=[shirts],
+            paid_by_others=0.0,
+        ),
+        decide("CLM-1001", 0.0),
+        AIMessage(content="Done."),
+    ]
+    harness.run_claim("CLM-1001", "t1", stub(*replies))
+    results = [
+        s["text"] for s in steps(client, "CLM-1001") if s["kind"] == "tool_result"
+    ]
+    assert '"step":"Less the deductible"' in results[0]
+
+
+def test_no_tracing_without_langfuse_keys(monkeypatch):
+    monkeypatch.delenv("LANGFUSE_PUBLIC_KEY", raising=False)
+    assert harness.tracing("CLM-1001", "t1") == {}
+
+
+def test_each_attempt_is_one_langfuse_session(monkeypatch):
+    monkeypatch.setenv("LANGFUSE_PUBLIC_KEY", "pk-test")
+    monkeypatch.setenv("LANGFUSE_SECRET_KEY", "sk-test")
+    config = harness.tracing("CLM-1001", "t1")
+    handlers = cast(list, config.get("callbacks"))
+    assert [type(h) for h in handlers] == [harness.CallbackHandler]
+    assert config.get("metadata") == {"langfuse_session_id": "CLM-1001 t1"}

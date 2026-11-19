@@ -41,6 +41,10 @@ def get_policy(policy_id: str) -> Json:
     return send("GET", f"/api/policies/{policy_id}").json()
 
 
+def calculate_payout(policy_id: str, request: Json) -> str:
+    return send("POST", f"/api/policies/{policy_id}/payout", json=request).text
+
+
 def get_claim_history(customer_id: str) -> Json:
     return send("GET", f"/api/customers/{customer_id}/history").json()
 

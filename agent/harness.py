@@ -6,7 +6,6 @@ import uuid
 from collections.abc import Callable, Iterator
 from typing import Any, cast
 
-from dotenv import load_dotenv
 from langchain.agents import create_agent
 from langchain.agents.middleware import (
     AgentMiddleware,
@@ -17,13 +16,13 @@ from langchain.agents.middleware import (
 from langchain.agents.middleware.types import ToolCallRequest
 from langchain_core.language_models import BaseChatModel
 from langchain_core.messages import AIMessage, BaseMessage, ToolMessage
+from langchain_core.runnables import RunnableConfig
 from langchain_openai import ChatOpenAI
+from langfuse.langchain import CallbackHandler
 from langgraph.types import Command
 from pydantic import SecretStr
 
 from agent import api, tools
-
-load_dotenv()
 
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = "deepseek/deepseek-v4.1-flash"
@@ -83,6 +82,16 @@ def queue_middleware() -> list[AgentMiddleware[Any, Any]]:
     return [refusals_as_text, retries(QUEUE_RETRIES)]
 
 
+def tracing(claim_id: str, thread_id: str) -> RunnableConfig:
+    """Trace a claim in Langfuse, in one session per attempt, when the keys are set."""
+    if not os.getenv("LANGFUSE_PUBLIC_KEY"):
+        return {}
+    return {
+        "callbacks": [CallbackHandler()],
+        "metadata": {"langfuse_session_id": f"{claim_id} {thread_id}"},
+    }
+
+
 def steps_of(message: BaseMessage) -> list[tuple[str, str]]:
     """Turn one message into the steps (kind, text) to show the handler."""
     if isinstance(message, ToolMessage):
@@ -107,6 +116,7 @@ def run_claim(claim_id: str, thread_id: str, llm: BaseChatModel | None = None) -
     )
     stream = agent.stream(
         {"messages": [{"role": "user", "content": f"Decide claim {claim_id}."}]},
+        tracing(claim_id, thread_id),
         stream_mode="updates",
         version="v2",
     )

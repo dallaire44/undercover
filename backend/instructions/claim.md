@@ -33,7 +33,7 @@ A decision is sound when it rests on:
 
 ## The payout
 
-An approval pays what wording section 10 and manual section 6 allow: the eligible amount of each item, less anything another party paid, less the deductible where it applies, up to the benefit's maximum. Amounts are in US dollars, rounded to cents. A decline or a referral has a payout of 0.
+An approval pays what wording section 10 and manual section 6 allow: the eligible amount of each item, less anything another party paid, less the deductible where it applies, up to the benefit's maximum. Work out an approval's payout with `calculate_payout`, which applies these rules for you, and record the payout it returns. You judge which lines are covered and what counts as one item; the tool does the arithmetic. Amounts are in US dollars, rounded to cents. A decline or a referral has a payout of 0.
 
 ## Done
 
