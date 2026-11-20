@@ -145,24 +145,42 @@ export function stubApi(routes: Record<string, unknown>) {
 
 export const runningRun: Run = {
   run_id: "RUN-0001",
-  cap: 5,
+  kind: "dispatch",
+  agents: 3,
+  claim_set: "queue",
+  tiny: false,
+  model: "openai/gpt-6-luna",
+  reasoning_effort: "low",
   status: "running",
-  summary: "",
+  reason: null,
   started_at: "2026-06-25T10:00:00+00:00",
   finished_at: null,
-  claim_ids: ["CLM-1001"],
-  todos: [
-    { content: "CLM-1001: trip delay, $420.00", status: "done" },
-    { content: "CLM-1004: baggage delay, $186.00", status: "in_progress" },
-    { content: "CLM-1009: baggage, $980.00", status: "left_for_handler" },
-    { content: "Check for missed claims", status: "to_do" },
+  claims: [
+    { ...waitingClaim, status: "in_progress", cost: 0.01, seconds: 20 },
+    { ...decidedClaim, cost: 0.02, seconds: 30 },
   ],
+  summary: {
+    approved: 1,
+    declined: 0,
+    referred: 0,
+    awaiting_sign_off: [],
+    needs_handler: [],
+    in_progress: ["CLM-1001"],
+  },
+  cost: 0.04,
+  seconds: 72,
 };
 
 export const finishedRun: Run = {
   ...runningRun,
   status: "finished",
-  summary: "Worked 3 claims. Total paid: $420.00.",
-  finished_at: "2026-06-25T10:05:00+00:00",
-  claim_ids: ["CLM-1001", "CLM-1004", "CLM-1009"],
+  finished_at: "2026-06-25T10:01:12+00:00",
+  summary: {
+    approved: 2,
+    declined: 1,
+    referred: 0,
+    awaiting_sign_off: [{ claim_id: "CLM-1003", payout: 3750 }],
+    needs_handler: ["CLM-1009"],
+    in_progress: ["CLM-1001"],
+  },
 };

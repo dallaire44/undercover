@@ -90,9 +90,14 @@ it("counts the claims left for a handler", () => {
   expect(within(row).getAllByText("—")).toHaveLength(2);
 });
 
-it("offers to work the waiting claims", () => {
+it("offers a dispatch while a claim is waiting or in progress", () => {
   stubApi({});
+  const dispatch = () =>
+    screen.getByRole("button", { name: "Dispatch the queue" });
+  const settled = claims.filter((claim) => claim.status === "decided");
   render(<Queue claims={claims} onWork={vi.fn()} />);
-  const input = screen.getByLabelText("Claims to work");
-  expect(input.getAttribute("max")).toBe("1");
+  expect(dispatch().hasAttribute("disabled")).toBe(false);
+  cleanup();
+  render(<Queue claims={settled} onWork={vi.fn()} />);
+  expect(dispatch().hasAttribute("disabled")).toBe(true);
 });

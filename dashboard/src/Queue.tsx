@@ -66,6 +66,7 @@ const COLUMNS = [
   "Payout",
 ];
 const RIGHT = new Set(["Claimed", "Payout"]);
+const TO_WORK: State[] = ["waiting", "in_progress"];
 
 export function Queue({
   claims,
@@ -75,7 +76,7 @@ export function Queue({
     <>
       <h1>Claims queue</h1>
       <RunPanel
-        waiting={claims.filter((claim) => claim.status === "waiting").length}
+        toWork={claims.filter((claim) => TO_WORK.includes(claim.status)).length}
         onStart={onWork}
       />
       <Counts claims={claims} />

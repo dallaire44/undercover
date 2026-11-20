@@ -414,34 +414,27 @@ pre {
   color: var(--ink);
 }
 
-.todos {
+.run-claims {
   list-style: none;
   padding: 0;
   margin: 0.5rem 0;
-  display: grid;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+}
+
+.run-claims li {
+  display: flex;
+  align-items: center;
   gap: 0.4rem;
-}
-
-.todo-to_do {
-  background: var(--waiting);
-  color: var(--waiting-ink);
-}
-
-.todo-in_progress {
-  background: var(--in-progress);
-  color: var(--in-progress-ink);
-}
-
-.todo-done {
-  background: var(--decided);
-  color: var(--decided-ink);
-}
-
-.todo-left_for_handler {
-  background: var(--alert);
-  color: var(--alert-ink);
 }
 
 .summary {
   white-space: pre-line;
+}
+
+.refusal {
+  border-left: 4px solid var(--alert);
+  padding-left: 0.6rem;
+  font-weight: 600;
 }

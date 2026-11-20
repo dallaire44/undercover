@@ -273,26 +273,32 @@ Changes while building Phase 2:
 
 Success criteria:
 
-- [ ] Agent service tests (TestClient on `agent.service.app`, with the dispatcher patched):
-  - [ ] `POST /dispatches {"agents": 3}` answers 202 and runs one dispatch at N=3
-  - [ ] a second start while it runs is 409 "A dispatch or evaluation is already running"
-  - [ ] once the first ends, a start is taken again
-  - [ ] every operation follows the API rules
-- [ ] On startup with a run left `running`, the service stops it with "The agent's service restarted", and its claims in progress stay in progress.
-- [ ] Backend tests: `start_dispatch` passes `{agents: 3}` to the service. A 409 from the service comes back as 409 with its reason. An unreachable service is 409 "The agent's service is not running". `agents` of 0 or 26 is 422.
-- [ ] Agent test, end to end on stub models: `start_dispatch` through the backend, with the service in the same process, works 3 claims and finishes the dispatch. `GET /api/dispatches/latest` shows the claims, the summary, a model cost above $0.00 and a time.
-- [ ] Vitest:
-  - [ ] the panel starts at 3 and limits N to 1–25
-  - [ ] it shows each claim with its chip, the cost as $0.04 and the time as "1 min 12 s"
-  - [ ] it shows the summary once finished
-  - [ ] a refusal shows its reason
-  - [ ] the instructions page has one panel
-- [ ] E2E:
-  - [ ] "Dispatch the queue" with 5 claim agents reaches the stand-in as `POST /dispatches {"agents":5}`
-  - [ ] a dispatch played out through the API shows "Running, 3 claim agents at once", its claims' chips changing, then "Finished" with its summary
-- [ ] Checked in the browser with the Playwright MCP server: the run panel in light and dark mode, with screenshots reviewed.
-- [ ] Code: the backend reaches the service only through `backend/agent_service.py`, and the dashboard reaches the service only through the backend (`test_structure.py`: no `8002` or `/dispatches` path outside `backend/agent_service.py` and `dashboard/src/api.ts`'s `/api/` calls).
-- [ ] The pre-commit checks pass and the phase is committed.
+- [x] Agent service tests (TestClient on `agent.service.app`, with the dispatcher patched):
+  - [x] `POST /dispatches {"agents": 3}` answers 202 and runs one dispatch at N=3
+  - [x] a second start while it runs is 409 "A dispatch or evaluation is already running"
+  - [x] once the first ends, a start is taken again
+  - [x] every operation follows the API rules
+- [x] On startup with a run left `running`, the service stops it with "The agent's service restarted", and its claims in progress stay in progress.
+- [x] Backend tests: `start_dispatch` passes `{agents: 3}` to the service. A 409 from the service comes back as 409 with its reason. An unreachable service is 409 "The agent's service is not running". `agents` of 0 or 26 is 422.
+- [x] Agent test, end to end on stub models: `start_dispatch` through the backend, with the service in the same process, works 3 claims and finishes the dispatch. `GET /api/dispatches/latest` shows the claims, the summary, a model cost above $0.00 and a time.
+- [x] Vitest:
+  - [x] the panel starts at 3 and limits N to 1–25
+  - [x] it shows each claim with its chip, the cost as $0.04 and the time as "1 min 12 s"
+  - [x] it shows the summary once finished
+  - [x] a refusal shows its reason
+  - [x] the instructions page has one panel
+- [x] E2E:
+  - [x] "Dispatch the queue" with 5 claim agents reaches the stand-in as `POST /dispatches {"agents":5}`
+  - [x] a dispatch played out through the API shows "Running, 3 claim agents at once", its claims' chips changing, then "Finished" with its summary
+- [x] Checked in the browser with the Playwright MCP server: the run panel in light and dark mode, with screenshots reviewed.
+- [x] Code: the backend reaches the service only through `backend/agent_service.py`, and the dashboard reaches the service only through the backend (`test_structure.py`: no `8002` or `/dispatches` path outside `backend/agent_service.py` and `dashboard/src/api.ts`'s `/api/` calls).
+- [x] The pre-commit checks pass and the phase is committed.
+
+Changes while building Phase 3:
+
+- The service's run lock and its 409, the backend's relay of a refusal and "The agent's service is not running", `start_agent` and the CLI were built in Phase 2, since the backend's old way of creating runs first went with the queue agent.
+- The panel's time is the dispatch's own time, from its start to its finish (or now), as the brief asks. Each claim's working time is in the API, and shows on the scoreboard in Phase 5.
+- A refusal is marked with a bar in the alert color, since text in that color would be too faint on the light theme.
 
 ## Phase 4: Evaluations
 

@@ -7,6 +7,14 @@ const dollars = new Intl.NumberFormat("en-US", {
 
 export const money = (amount: number) => dollars.format(amount);
 
+/** A time in whole seconds, such as "45 s" or "1 min 12 s". */
+export function duration(seconds: number) {
+  const whole = Math.round(seconds);
+  const minutes = Math.floor(whole / 60);
+  const rest = `${String(whole % 60)} s`;
+  return minutes ? `${String(minutes)} min ${rest}` : rest;
+}
+
 export const date = (iso: string) =>
   new Date(iso).toLocaleDateString("en-US", {
     year: "numeric",

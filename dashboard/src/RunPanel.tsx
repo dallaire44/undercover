@@ -1,87 +1,125 @@
 import { useState } from "react";
-import { getLatestRun, startRun, type Run, type Todo } from "./api";
+import {
+  getLatestDispatch,
+  startDispatch,
+  type Run,
+  type RunClaim,
+  type RunSummary,
+} from "./api";
+import { StatusChip } from "./Chips";
+import { duration, money } from "./format";
 import { useLoad } from "./useLoad";
 
-const TODO_LABELS: Record<Todo["status"], string> = {
-  to_do: "To do",
-  in_progress: "In progress",
-  done: "Done",
-  left_for_handler: "Left for a handler",
-};
-const FIRST_CAP = 5;
+const FIRST_AGENTS = 3;
+const MOST_AGENTS = 25;
 
-const claims = (count: number) =>
-  count === 1 ? "1 claim" : `${String(count)} claims`;
+const agentsAtOnce = (count: number) =>
+  `${String(count)} claim agent${count === 1 ? "" : "s"} at once`;
 
 function RunState({ run }: Readonly<{ run: Run }>) {
-  if (run.status === "running") return <p>Running, up to {claims(run.cap)}</p>;
-  if (run.status === "stopped") return <p>Stopped: {run.summary}</p>;
-  return <p>Finished, {claims(run.claim_ids.length)} worked</p>;
+  if (run.status === "running")
+    return <p>Running, {agentsAtOnce(run.agents)}</p>;
+  if (run.status === "stopped") return <p>Stopped: {run.reason}</p>;
+  return <p>Finished</p>;
 }
 
-function TodoList({ todos }: Readonly<{ todos: Todo[] }>) {
-  if (!todos.length) return null;
+function RunClaims({ claims }: Readonly<{ claims: RunClaim[] }>) {
+  if (!claims.length) return null;
   return (
-    <ol className="todos" aria-label="To-do list">
-      {todos.map((todo) => (
-        <li key={todo.content}>
-          <span className={`chip todo-${todo.status}`}>
-            {TODO_LABELS[todo.status]}
-          </span>
-          <span>{todo.content}</span>
+    <ul className="run-claims" aria-label="Claims in this dispatch">
+      {claims.map((claim) => (
+        <li key={claim.claim_id}>
+          <StatusChip state={claim.status} />
+          <a href={`#/claims/${claim.claim_id}`}>{claim.claim_id}</a>
         </li>
       ))}
-    </ol>
+    </ul>
   );
 }
 
-/** Start a run of the agent on the queue, and follow the latest run. */
-export function RunPanel({
-  waiting,
-  onStart,
-}: Readonly<{ waiting: number; onStart: () => void }>) {
-  const { data: run, reload } = useLoad(
-    getLatestRun,
-    (loaded) => loaded?.status === "running",
+function Summary({ summary }: Readonly<{ summary: RunSummary }>) {
+  const held = summary.awaiting_sign_off.map(
+    (claim) => `${claim.claim_id} (${money(claim.payout)})`,
   );
-  const [cap, setCap] = useState(FIRST_CAP);
+  return (
+    <div className="summary" aria-label="Summary">
+      <p>
+        Approved {summary.approved}, declined {summary.declined}, referred{" "}
+        {summary.referred}.
+      </p>
+      {held.length > 0 && <p>Waiting for sign-off: {held.join(", ")}</p>}
+      {summary.needs_handler.length > 0 && (
+        <p>Left for a handler: {summary.needs_handler.join(", ")}</p>
+      )}
+      {summary.in_progress.length > 0 && (
+        <p>Still in progress: {summary.in_progress.join(", ")}</p>
+      )}
+    </div>
+  );
+}
+
+/** Dispatch the queue with N claim agents at once, and follow the latest dispatch. */
+export function RunPanel({
+  toWork,
+  onStart,
+}: Readonly<{ toWork: number; onStart: () => void }>) {
+  const [agents, setAgents] = useState(FIRST_AGENTS);
+  const [refusal, setRefusal] = useState<string | null>(null);
+  const [startedAfter, setStartedAfter] = useState<string | null>();
+  const { data: run, reload } = useLoad(
+    getLatestDispatch,
+    (loaded) =>
+      loaded?.status === "running" ||
+      (startedAfter !== undefined && (loaded?.run_id ?? null) === startedAfter),
+  );
   const running = run?.status === "running";
-  const started = () => {
+  const started = (reason: string | null) => {
+    setRefusal(reason);
+    setStartedAfter(reason ? undefined : (run?.run_id ?? null));
     void reload();
     onStart();
   };
   return (
     <section className="panel run" aria-labelledby="run-title">
-      <h2 id="run-title">Agent run</h2>
+      <h2 id="run-title">Dispatch</h2>
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          void startRun(cap).then(started, started);
+          void startDispatch(agents).then(started, () => {
+            started("The dispatch could not be started.");
+          });
         }}
       >
         <label>
-          Claims to work{" "}
+          Claim agents at once{" "}
           <input
             type="number"
             min={1}
-            max={Math.max(waiting, 1)}
-            value={cap}
+            max={MOST_AGENTS}
+            value={agents}
             onChange={(event) => {
-              setCap(Number(event.target.value));
+              const chosen = Number(event.target.value);
+              setAgents(Math.min(MOST_AGENTS, Math.max(1, chosen)));
             }}
           />
         </label>
-        <button type="submit" disabled={running || waiting === 0}>
-          Work the queue
+        <button type="submit" disabled={running || toWork === 0}>
+          Dispatch the queue
         </button>
       </form>
+      {refusal && (
+        <p className="refusal" role="alert">
+          {refusal}
+        </p>
+      )}
       {run && (
         <>
           <RunState run={run} />
-          <TodoList todos={run.todos} />
-          {run.status === "finished" && (
-            <p className="summary">{run.summary}</p>
-          )}
+          <RunClaims claims={run.claims} />
+          <p>
+            Model cost {money(run.cost)}, time {duration(run.seconds)}
+          </p>
+          {run.status === "finished" && <Summary summary={run.summary} />}
         </>
       )}
     </section>

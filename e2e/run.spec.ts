@@ -1,103 +1,111 @@
 import { expect, test, type APIRequestContext } from "@playwright/test";
+import { AGENT } from "../playwright.config";
 import { expectCountsMatchChips } from "./helpers";
 
-async function latestRunId(request: APIRequestContext) {
-  const run = (await (await request.get("/api/runs/latest")).json()) as {
-    run_id: string;
-  };
-  return run.run_id;
+const DISPATCH = {
+  agents: 3,
+  model: "openai/gpt-6-luna",
+  reasoning_effort: "low",
+};
+
+async function createDispatch(request: APIRequestContext) {
+  const response = await request.post("/api/dispatches", { data: DISPATCH });
+  return ((await response.json()) as { run_id: string }).run_id;
 }
 
-const writeTodos = (
+async function work(
   request: APIRequestContext,
   runId: string,
-  todos: [string, string][],
-) =>
-  request.put(`/api/runs/${runId}/todos`, {
+  claimId: string,
+  decision: string,
+) {
+  await request.post(`/api/runs/${runId}/claims/${claimId}`);
+  await request.post(`/api/claims/${claimId}/model-calls`, {
+    data: { run_id: runId, input_tokens: 900, output_tokens: 90, cost: 0.02 },
+  });
+  await request.post(`/api/claims/${claimId}/work-times`, {
     data: {
-      todos: todos.map(([content, status]) => ({ content, status })),
+      run_id: runId,
+      started_at: "2026-11-19T10:00:00.000+00:00",
+      seconds: 36,
     },
   });
+  await request.post(`/api/claims/${claimId}/decision`, {
+    data: {
+      decision,
+      payout: 0,
+      reason: "The wording settles it.",
+      policy_section: "6. Passport and Travel Documents",
+    },
+  });
+}
 
-test("a run's to-do list fills in and is ticked off", async ({
+test("a dispatch started on the dashboard reaches the agent with N", async ({
   page,
   request,
 }) => {
   await page.goto("/");
-  await page.getByLabel("Claims to work").fill("2");
-  await page.getByRole("button", { name: "Work the queue" }).click();
-  await expect(page.getByText("Running, up to 2 claims")).toBeVisible();
+  await page.getByLabel("Claim agents at once").fill("5");
+  await page.getByRole("button", { name: "Dispatch the queue" }).click();
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get(`${AGENT}/calls`)).json()) as string[],
+    )
+    .toContain('POST /dispatches {"agents":5}');
+});
+
+test("a dispatch's claims, cost and summary show as it goes", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/");
+  const runId = await createDispatch(request);
+  await expect(page.getByText("Running, 3 claim agents at once")).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Work the queue" }),
+    page.getByRole("button", { name: "Dispatch the queue" }),
   ).toBeDisabled();
 
-  const runId = await latestRunId(request);
-  await writeTodos(request, runId, [
-    ["CLM-1005: passport, $243.00", "in_progress"],
-    ["Check for missed claims", "to_do"],
-    ["Write the summary", "to_do"],
-  ]);
-  const list = page.getByRole("list", { name: "To-do list" });
-  await expect(list.getByRole("listitem")).toHaveCount(3);
-  await expect(list.getByRole("listitem").first()).toContainText("In progress");
-
   await request.post(`/api/runs/${runId}/claims/CLM-1005`);
-  await request.post("/api/claims/CLM-1005/decision", {
-    data: {
-      decision: "decline",
-      payout: 0,
-      reason: "The wording does not cover it.",
-      policy_section: "6. Passport and Travel Documents",
-    },
-  });
-  await writeTodos(request, runId, [
-    ["CLM-1005: passport, $243.00", "done"],
-    ["Check for missed claims", "done"],
-    ["Write the summary", "done"],
+  const claims = page.getByRole("list", { name: "Claims in this dispatch" });
+  await expect(claims.getByRole("listitem")).toHaveText([
+    "In progressCLM-1005",
   ]);
-  await expect(list.getByRole("listitem").first()).toContainText("Done");
 
-  const blocked = await request.post(`/api/runs/${runId}/finish`, {
-    data: { summary: "Too soon." },
-  });
-  expect(blocked.status()).toBe(409);
-  await request.post(`/api/runs/${runId}/claims/CLM-1007`);
-  await request.post("/api/claims/CLM-1007/decision", {
-    data: {
-      decision: "refer",
-      payout: 0,
-      reason: "The police report is missing.",
-      policy_section: "5. Baggage and Personal Effects",
-    },
-  });
-  await request.post(`/api/runs/${runId}/finish`, {
-    data: { summary: "Worked 2 claims: 1 declined, 1 referred." },
-  });
-  await expect(page.getByText("Finished, 2 claims worked")).toBeVisible();
+  await work(request, runId, "CLM-1005", "decline");
+  await work(request, runId, "CLM-1007", "refer");
+  await expect(claims.getByRole("listitem")).toHaveText([
+    "DecidedCLM-1005",
+    "DecidedCLM-1007",
+  ]);
   await expect(
-    page.getByText("Worked 2 claims: 1 declined, 1 referred."),
+    page.getByText(/^Model cost \$0\.04, time \d+ s$/),
+  ).toBeVisible();
+
+  await request.post(`/api/runs/${runId}/finish`);
+  await expect(page.getByText("Finished", { exact: true })).toBeVisible();
+  await expect(
+    page.getByText("Approved 0, declined 1, referred 1."),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Work the queue" }),
+    page.getByRole("button", { name: "Dispatch the queue" }),
   ).toBeEnabled();
-  const row = page.getByRole("row", { name: /CLM-1008/ });
-  await expect(row.getByRole("cell").nth(5)).toHaveText("Waiting");
+  await claims.getByRole("link", { name: "CLM-1007" }).click();
+  await expect(page).toHaveURL(/#\/claims\/CLM-1007$/);
 });
 
 test("a claim that fails twice needs a handler", async ({ page, request }) => {
-  await request.post("/api/runs", { data: { cap: 1 } });
-  const runId = await latestRunId(request);
+  const runId = await createDispatch(request);
   for (const attempt of [1, 2]) {
     await request.post(`/api/runs/${runId}/claims/CLM-1006`);
     await request.post("/api/claims/CLM-1006/return", {
       data: { thread_id: "e2e", reason: `Attempt ${String(attempt)} failed.` },
     });
   }
-  await request.post(`/api/runs/${runId}/finish`, {
-    data: { summary: "CLM-1006 was left for a handler." },
-  });
+  await request.post(`/api/runs/${runId}/finish`);
 
   await page.goto("/");
+  await expect(page.getByText("Left for a handler: CLM-1006")).toBeVisible();
   const cells = page.getByRole("row", { name: /CLM-1006/ }).getByRole("cell");
   await expect(cells.nth(5)).toHaveText("Needs a handler");
   await expectCountsMatchChips(page);

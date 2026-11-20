@@ -90,20 +90,16 @@ test("a section the agent read shows under Sections read", async ({
   ]);
 });
 
-test("the instructions page shows both agents' instructions and cannot edit them", async ({
+test("the instructions page shows the claim agent's instructions and cannot edit them", async ({
   page,
 }) => {
   await page.goto("/");
   await page.getByRole("link", { name: "Agent instructions" }).click();
-  for (const [name, file] of [
-    ["Running the queue", "queue"],
-    ["Working a claim", "claim"],
-  ]) {
-    const text = readFileSync(`backend/instructions/${file}.md`, "utf-8");
-    await expect(page.getByRole("region", { name }).locator("pre")).toHaveText(
-      text.trim(),
-    );
-  }
+  const text = readFileSync("backend/instructions/claim.md", "utf-8");
+  await expect(
+    page.getByRole("region", { name: "Working a claim" }).locator("pre"),
+  ).toHaveText(text.trim());
+  await expect(page.getByRole("region")).toHaveCount(1);
   await expect(page.getByRole("textbox")).toHaveCount(0);
   await expect(page.getByRole("button")).toHaveCount(0);
 });

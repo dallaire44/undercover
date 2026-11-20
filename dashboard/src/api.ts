@@ -50,20 +50,36 @@ export interface SignOff {
   signed_at: string;
 }
 
-export interface Todo {
-  content: string;
-  status: "to_do" | "in_progress" | "done" | "left_for_handler";
+export interface RunClaim extends ClaimSummary {
+  cost: number;
+  seconds: number;
+}
+
+export interface RunSummary {
+  approved: number;
+  declined: number;
+  referred: number;
+  awaiting_sign_off: { claim_id: string; payout: number }[];
+  needs_handler: string[];
+  in_progress: string[];
 }
 
 export interface Run {
   run_id: string;
-  cap: number;
+  kind: "dispatch" | "evaluation";
+  agents: number;
+  claim_set: "queue" | "evaluation" | "held_out";
+  tiny: boolean;
+  model: string;
+  reasoning_effort: string;
   status: "running" | "finished" | "stopped";
-  summary: string;
+  reason: string | null;
   started_at: string;
   finished_at: string | null;
-  claim_ids: string[];
-  todos: Todo[];
+  claims: RunClaim[];
+  summary: RunSummary;
+  cost: number;
+  seconds: number;
 }
 
 export interface ClaimDetail {
@@ -142,12 +158,23 @@ async function get<T>(path: string): Promise<T> {
   return (await (await request(path)).json()) as T;
 }
 
-const post = (path: string, body?: object) =>
-  request(path, {
-    method: "POST",
-    headers: { "content-type": "application/json" },
-    body: JSON.stringify(body),
-  });
+const posting = (body?: object): RequestInit => ({
+  method: "POST",
+  headers: { "content-type": "application/json" },
+  body: JSON.stringify(body),
+});
+
+const post = (path: string, body?: object) => request(path, posting(body));
+
+/** Ask the backend to start some work. Resolve with its reason if it refuses. */
+async function start(path: string, body?: object): Promise<string | null> {
+  const response = await fetch(path, posting(body));
+  if (response.status === 409)
+    return ((await response.json()) as { detail: string }).detail;
+  if (!response.ok)
+    throw new Error(`${path} returned ${String(response.status)}`);
+  return null;
+}
 
 export const listClaims = () => get<ClaimSummary[]>("/api/claims");
 export const getClaim = (id: string) => get<ClaimDetail>(`/api/claims/${id}`);
@@ -156,10 +183,12 @@ export const getHistory = (customerId: string) =>
   get<History>(`/api/customers/${customerId}/history`);
 export const listSteps = (id: string) => get<Step[]>(`/api/claims/${id}/steps`);
 export const listHandlers = () => get<Handler[]>("/api/handlers");
-export const getInstructions = async (agent: "queue" | "claim") =>
-  (await request(`/api/instructions/${agent}`)).text();
-export const startAgent = (id: string) => post(`/api/claims/${id}/agent`);
-export const startRun = (cap: number) => post("/api/runs", { cap });
-export const getLatestRun = () => get<Run | null>("/api/runs/latest");
+export const getInstructions = async () =>
+  (await request("/api/instructions/claim")).text();
+export const startAgent = (id: string) => start(`/api/claims/${id}/agent`);
+export const startDispatch = (agents: number) =>
+  start("/api/dispatches/start", { agents });
+export const getLatestDispatch = () =>
+  get<Run | null>("/api/dispatches/latest");
 export const signOff = (id: string, handlerId: string) =>
   post(`/api/claims/${id}/sign-off`, { handler_id: handlerId });
