@@ -411,20 +411,27 @@ Changes while building Phase 5:
 
 Success criteria:
 
-- [ ] Run 2 carries on the claims left in progress by run 1, as the same attempts (same `thread_id`, `attempts` unchanged, one decision each). It works the rest with 25 at once: the claims' first work times start within a few seconds of each other.
-- [ ] Run 2's time is well under the sum of its claims' times.
-- [ ] Comparing claims worked from the start, each takes about as long at N=25 as at N=3. If they are slower, the report says where the time goes, keeping to 4 connections.
-- [ ] Claims held for sign-off wait. A sign-off on the dashboard shows the claim paid within five seconds.
-- [ ] No claim fails for want of a database connection.
-- [ ] During run 2, `select count(*) from pg_stat_activity where usename = 'postgres'` through the Supabase MCP server returns 12 or fewer.
-- [ ] Both evaluations appear on the scoreboard with every measure. The queue page's counts are the same before and after them.
-- [ ] Through Langfuse's v2 observations API, the traces tagged with run 2's id cover each of its claims.
-- [ ] `docs/SPEC.md`, `docs/TECH_STACK.md`, `docs/PROCESS.md`, `docs/CODE_STANDARDS.md` and `docs/STATUS.md` describe the product as built.
-- [ ] With `.env` moved out of the way, `npm run check` is green:
+- [x] Run 2 carries on the claims left in progress by run 1, as the same attempts (same `thread_id`, `attempts` unchanged, one decision each). It works the rest with 25 at once: the claims' first work times start within a few seconds of each other.
+- [x] Run 2's time is well under the sum of its claims' times.
+- [x] Comparing claims worked from the start, each takes about as long at N=25 as at N=3. If they are slower, the report says where the time goes, keeping to 4 connections.
+- [x] Claims held for sign-off wait. A sign-off on the dashboard shows the claim paid within five seconds.
+- [x] No claim fails for want of a database connection.
+- [x] During run 2, `select count(*) from pg_stat_activity where usename = 'postgres'` through the Supabase MCP server returns 12 or fewer.
+- [x] Both evaluations appear on the scoreboard with every measure. The queue page's counts are the same before and after them.
+- [x] Through Langfuse's v2 observations API, the traces tagged with run 2's id cover each of its claims.
+- [x] `docs/SPEC.md`, `docs/TECH_STACK.md`, `docs/PROCESS.md`, `docs/CODE_STANDARDS.md` and `docs/STATUS.md` describe the product as built.
+- [x] With `.env` moved out of the way, `npm run check` is green:
   - ruff
   - pyright
   - pytest at or above 80% coverage
   - Prettier, ESLint and tsc
   - vitest at or above 80% coverage
   - Playwright
-- [ ] The phase is committed, and the live runs' results are reported to you.
+- [x] The phase is committed, and the live runs' results are reported to you.
+
+Changes while building Phase 6:
+
+- `docs/PROCESS.md` had no five-claim cap to replace, so it gains a rule on live runs: reseed once and keep to the runs the plan names.
+- GPT-6 Luna worked 16 claims before the stop, so run 2 had 9 claims (3 to carry on, 6 waiting), all started within 0.6 seconds. Claims worked at 25 at once were measured in the evaluation of the evaluation set: about twice as slow per claim, from waiting for the 4 database connections, as STATUS reports.
+- A second held-out evaluation, RUN-0005, was started from the same browser 39 seconds after the first, most likely by hand, since the browser's settings were changed by hand meanwhile.
+- Model costs show to a hundredth of a cent, since the scoreboard showed $0.00 per claim.

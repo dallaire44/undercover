@@ -8,7 +8,7 @@ import {
 } from "./api";
 import { AgentsField, FIRST_AGENTS } from "./AgentsField";
 import { StatusChip } from "./Chips";
-import { duration, money } from "./format";
+import { duration, modelCost, money } from "./format";
 import { useLoad } from "./useLoad";
 
 const agentsAtOnce = (count: number) =>
@@ -103,7 +103,7 @@ export function RunPanel({
           <RunState run={run} />
           <RunClaims claims={run.claims} />
           <p>
-            Model cost {money(run.cost)}, time {duration(run.seconds)}
+            Model cost {modelCost(run.cost)}, time {duration(run.seconds)}
           </p>
           {run.status === "finished" && <Summary summary={run.summary} />}
         </>

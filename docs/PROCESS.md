@@ -44,5 +44,6 @@ When the last phase is done, run `npm run check` and report the results.
 - Never lower a threshold, turn off a rule or exclude a file to get a green run. If a rule looks wrong, stop and ask.
 - Keep `docs/STATUS.md` up to date.
 - Never push.
+- Before live runs with the real model, reseed once with `npm run reset`, and keep to the live runs the plan names, such as a dispatch at N=3 stopped partway, a dispatch at N=25 and the evaluations; a dispatch works the whole queue, so there is no smaller trial run.
 - Don't open `data/evals/` unless you're asked to.
 - Everything must work on Windows: write `package.json` scripts as `uv run` commands or `.mjs` files.

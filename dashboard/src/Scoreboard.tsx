@@ -8,6 +8,7 @@ import {
 import { AgentsField, FIRST_AGENTS } from "./AgentsField";
 import {
   duration,
+  modelCost,
   modelName,
   money,
   percent,
@@ -112,7 +113,7 @@ function Row({ evaluation }: Readonly<{ evaluation: Evaluation }>) {
       <td className="num right">{percent(scores.accuracy)}</td>
       <td className="num right">{money(scores.cost_of_mistakes)}</td>
       <td className="num right">{percent(scores.straight_through)}</td>
-      <td className="num right">{money(scores.cost_per_claim)}</td>
+      <td className="num right">{modelCost(scores.cost_per_claim)}</td>
       <td className="num right">{duration(scores.seconds_per_claim)}</td>
       <td className="num right">{duration(scores.run_seconds)}</td>
     </tr>

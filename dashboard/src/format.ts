@@ -7,6 +7,15 @@ const dollars = new Intl.NumberFormat("en-US", {
 
 export const money = (amount: number) => dollars.format(amount);
 
+const fractions = new Intl.NumberFormat("en-US", {
+  style: "currency",
+  currency: "USD",
+  maximumFractionDigits: 4,
+});
+
+/** A model cost, to a hundredth of a cent, since a claim costs a fraction of one. */
+export const modelCost = (amount: number) => fractions.format(amount);
+
 export const percent = (share: number) => `${String(Math.round(share * 100))}%`;
 
 /** A time in whole seconds, such as "45 s" or "1 min 12 s". */

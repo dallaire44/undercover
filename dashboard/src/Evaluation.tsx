@@ -3,6 +3,7 @@ import { getEvaluation, type ScoredClaim, type Verdict } from "./api";
 import { StatusChip, VerdictChip } from "./Chips";
 import {
   duration,
+  modelCost,
   modelName,
   money,
   percent,
@@ -57,7 +58,7 @@ function Row({ claim }: Readonly<{ claim: ScoredClaim }>) {
         {claim.right ? "Right" : <span className="chip miss-chip">Miss</span>}
       </td>
       <td className="num right">{money(claim.mistake_cost)}</td>
-      <td className="num right">{money(claim.cost)}</td>
+      <td className="num right">{modelCost(claim.cost)}</td>
       <td className="num right">{duration(claim.seconds)}</td>
     </tr>
   );
@@ -96,7 +97,7 @@ export function EvaluationPage({ runId }: Readonly<{ runId: string }>) {
           <dt>Straight through</dt>
           <dd className="num">{percent(scores.straight_through)}</dd>
           <dt>Cost per claim</dt>
-          <dd className="num">{money(scores.cost_per_claim)}</dd>
+          <dd className="num">{modelCost(scores.cost_per_claim)}</dd>
           <dt>Time per claim</dt>
           <dd className="num">{duration(scores.seconds_per_claim)}</dd>
           <dt>Run time</dt>
