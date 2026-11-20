@@ -13,6 +13,7 @@ from backend import (
     agent_service,
     db,
     documents,
+    evaluations,
     payouts,
     records,
     rules,
@@ -28,6 +29,9 @@ from backend.models import (
     DecisionRequest,
     DispatchRequest,
     DispatchStart,
+    Evaluation,
+    EvaluationRequest,
+    EvaluationStart,
     Handler,
     ModelCall,
     ModelCallRequest,
@@ -230,6 +234,30 @@ def start_agent(claim_id: str, conn: Connection = Db) -> None:
 def create_dispatch(request: DispatchRequest, conn: Connection = Db) -> Run:
     """Create a dispatch of the queue, unless a run is already running."""
     return runs.create_dispatch(conn, request)
+
+
+@app.post("/api/evaluations/start", operation_id="start_evaluation", status_code=202)
+def start_evaluation(request: EvaluationStart) -> None:
+    """Ask the agent to evaluate a labelled set with N claim agents at once."""
+    agent_service.start_evaluation(request.agents, request.claim_set, request.tiny)
+
+
+@app.post("/api/evaluations", operation_id="create_evaluation")
+def create_evaluation(request: EvaluationRequest, conn: Connection = Db) -> Run:
+    """Create an evaluation and its copies of the set's claims."""
+    return evaluations.create(conn, request)
+
+
+@app.get("/api/evaluations", operation_id="list_evaluations")
+def list_evaluations(conn: Connection = Db) -> list[Evaluation]:
+    """List every evaluation with its measures, newest first."""
+    return evaluations.list_all(conn)
+
+
+@app.get("/api/evaluations/{run_id}", operation_id="get_evaluation")
+def get_evaluation(run_id: str, conn: Connection = Db) -> Evaluation:
+    """Get one evaluation with each copy scored against the handler's decision."""
+    return evaluations.get(conn, run_id)
 
 
 @app.get("/api/dispatches/latest", operation_id="get_latest_dispatch")

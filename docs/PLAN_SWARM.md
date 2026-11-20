@@ -314,16 +314,16 @@ Changes while building Phase 3:
 
 Success criteria:
 
-- [ ] Seeding gives 25 waiting claims in the queue, 25 rows in `held_out_claims`, and 50 rows in `answers`, 10 of them `tiny`.
-- [ ] **The queue stays as it was:**
+- [x] Seeding gives 25 waiting claims in the queue, 25 rows in `held_out_claims`, and 50 rows in `answers`, 10 of them `tiny`.
+- [x] **The queue stays as it was:**
   1. `list_claims` before an evaluation of the evaluation set equals `list_claims` after it, with every copy decided by stubs.
   2. A dispatch started after the evaluation lists no copy.
-- [ ] **Copies:**
-  - [ ] a tiny held-out evaluation has 5 copies, each with an id such as `RUN-0002-CLM-11xx` in its record, and `copy_of` set
-  - [ ] `GET /api/claims/<copy id>` has the claim's story and nothing from the handlers' decisions: none of the handler's reason, calculation, `tests` or `difficulty` text appears in it
-- [ ] **No sign-off on a copy:** on a copy approved over the limit, `sign_off` is 409 "An evaluation's copy can't be signed off".
-- [ ] **Held approvals count as finished:** in a stub evaluation where one copy is approved over the limit, the evaluation finishes. The copy is `awaiting_sign_off`, and the checkpointer has no checkpoint for its thread.
-- [ ] **The measures match ones worked out by hand:** an evaluation of the 5 tiny claims of the evaluation set, with decisions recorded through the API, gives the hand-worked `decision_accuracy`, `accuracy`, cost of mistakes, straight-through rate, cost per claim, time per claim and run time. The decisions are:
+- [x] **Copies:**
+  - [x] a tiny held-out evaluation has 5 copies, each with an id such as `RUN-0002-CLM-11xx` in its record, and `copy_of` set
+  - [x] `GET /api/claims/<copy id>` has the claim's story and nothing from the handlers' decisions: none of the handler's reason, calculation, `tests` or `difficulty` text appears in it
+- [x] **No sign-off on a copy:** on a copy approved over the limit, `sign_off` is 409 "An evaluation's copy can't be signed off".
+- [x] **Held approvals count as finished:** in a stub evaluation where one copy is approved over the limit, the evaluation finishes. The copy is `awaiting_sign_off`, and the checkpointer has no checkpoint for its thread.
+- [x] **The measures match ones worked out by hand:** an evaluation of the 5 tiny claims of the evaluation set, with decisions recorded through the API, gives the hand-worked `decision_accuracy`, `accuracy`, cost of mistakes, straight-through rate, cost per claim, time per claim and run time. The decisions are:
   - one right
   - one approved with the right decision and a payout $20 off
   - one wrongful decline
@@ -331,12 +331,17 @@ Success criteria:
   - one left undecided
 
   The test states the expected values and how each was worked out.
-- [ ] An evaluation that the service's startup stopped shows `stopped`, and a later dispatch never takes its copies.
-- [ ] Each evaluation records its set, `tiny`, N, the model and the reasoning effort.
-- [ ] Code:
-  - [ ] `test_structure.py` checks that `answers` appears only in `backend/db.py` and `backend/scores.py`
-  - [ ] `agent/` never names `/api/evaluations/{` or `answers`
-- [ ] The pre-commit checks pass and the phase is committed.
+- [x] An evaluation that the service's startup stopped shows `stopped`, and a later dispatch never takes its copies.
+- [x] Each evaluation records its set, `tiny`, N, the model and the reasoning effort.
+- [x] Code:
+  - [x] `test_structure.py` checks that `answers` appears only in `backend/db.py` and `backend/scores.py`
+  - [x] `agent/` never names `/api/evaluations/{` or `answers`
+- [x] The pre-commit checks pass and the phase is committed.
+
+Changes while building Phase 4:
+
+- A copy's `get_claim` is checked to have exactly the original claim's fields, with no decision, and none of the handler's reason, `tests` or `difficulty` text. A calculation step's text, such as "Duffel bag", is often an item on the claim itself, so it can't be checked as text.
+- `get_evaluation` and `list_evaluations` give the run, its measures (`scores`) and its scored copies.
 
 ## Phase 5: The scoreboard
 

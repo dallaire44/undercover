@@ -25,6 +25,7 @@ CLAIMS = (
         claims.c.attempts,
         claims.c.run_id,
         claims.c.thread_id,
+        claims.c.copy_of,
         claims.c.doc,
         decisions.c.decision,
         decisions.c.payout,
@@ -74,6 +75,7 @@ def summaries(conn: Connection, *where: ColumnElement[bool]) -> list[ClaimSummar
             attempts=row["attempts"],
             run_id=row["run_id"],
             thread_id=row["thread_id"],
+            copy_of=row["copy_of"],
             customer_name=row["customer_name"],
             decision=row["decision"],
             payout=row["payout"],
@@ -83,8 +85,11 @@ def summaries(conn: Connection, *where: ColumnElement[bool]) -> list[ClaimSummar
 
 
 def list_claims(conn: Connection) -> list[ClaimSummary]:
-    """Return every claim in the queue, with its decision and payout if any."""
-    return summaries(conn)
+    """Return every claim in the queue, with its decision and payout if any.
+
+    An evaluation's copies are not in the queue.
+    """
+    return summaries(conn, claims.c.copy_of.is_(None))
 
 
 def in_run(conn: Connection, run_id: str) -> list[ClaimSummary]:
@@ -117,6 +122,7 @@ def get_claim(conn: Connection, claim_id: str) -> ClaimDetail:
         attempts=row["attempts"],
         run_id=row["run_id"],
         thread_id=row["thread_id"],
+        copy_of=row["copy_of"],
         customer_name=customer["name"],
         decision=DecisionRecord(**decision) if decision else None,
         payment=Payment(**payment) if payment else None,

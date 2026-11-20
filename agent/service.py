@@ -1,13 +1,16 @@
 """The agent's service: the one place the agent runs. The backend calls it.
 
-It starts dispatches, one run at a time, and resumes claims after a sign-off.
-Each operation answers at once and works in the background. When the service
-starts, it stops the run it left running; the next dispatch carries its claims on.
+It starts dispatches and evaluations, one run at a time, and resumes claims
+after a sign-off. Each operation answers at once and works in the background.
+When the service starts, it stops the run it left running; the next dispatch
+carries its claims on.
 """
 
 import threading
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
+from functools import partial
+from typing import Literal
 
 from fastapi import BackgroundTasks, FastAPI, HTTPException
 from pydantic import BaseModel, Field
@@ -22,6 +25,11 @@ RESTARTED = "The agent's service restarted"
 
 class DispatchStart(BaseModel):
     agents: int = Field(ge=1, le=25, description="How many claim agents work at once")
+
+
+class EvaluationStart(DispatchStart):
+    claim_set: Literal["evaluation", "held_out"]
+    tiny: bool = Field(description="Only the set's five tiny claims")
 
 
 def stop_left_running() -> None:
@@ -44,21 +52,25 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(title="UnderCover Agent", lifespan=lifespan)
 
 
-def run_dispatch(agents: int, only: str | None) -> None:
-    """Create a dispatch through the backend and work it, then free the lock."""
+def work(create: Callable[[str, str], api.Json], agents: int, only: str | None) -> None:
+    """Create the run through the backend, dispatch its claims, and free the lock."""
     try:
-        name, effort = harness.model_settings()
-        run_id = api.create_dispatch(agents, name, effort)["run_id"]
+        run_id = create(*harness.model_settings())["run_id"]
         dispatcher.dispatch(run_id, agents, RESUMING, only)
     finally:
         RUN_LOCK.release()
 
 
-def start(tasks: BackgroundTasks, agents: int, only: str | None) -> None:
-    """Take the run lock and work the dispatch in the background, or refuse."""
+def start(
+    tasks: BackgroundTasks,
+    create: Callable[[str, str], api.Json],
+    agents: int,
+    only: str | None,
+) -> None:
+    """Take the run lock and work the run in the background, or refuse."""
     if not RUN_LOCK.acquire(blocking=False):
         raise HTTPException(status_code=409, detail=BUSY)
-    tasks.add_task(run_dispatch, agents, only)
+    tasks.add_task(work, create, agents, only)
 
 
 def resume(claim_id: str) -> None:
@@ -78,13 +90,22 @@ def health() -> dict[str, str]:
 @app.post("/dispatches", operation_id="start_dispatch", status_code=202)
 def start_dispatch(request: DispatchStart, tasks: BackgroundTasks) -> None:
     """Dispatch the queue with N claim agents at once, unless a run is going."""
-    start(tasks, request.agents, None)
+    start(tasks, partial(api.create_dispatch, request.agents), request.agents, None)
+
+
+@app.post("/evaluations", operation_id="start_evaluation", status_code=202)
+def start_evaluation(request: EvaluationStart, tasks: BackgroundTasks) -> None:
+    """Evaluate a labelled set with N claim agents at once, unless a run is going."""
+    create = partial(
+        api.create_evaluation, request.agents, request.claim_set, request.tiny
+    )
+    start(tasks, create, request.agents, None)
 
 
 @app.post("/claims/{claim_id}/work", operation_id="work_one", status_code=202)
 def work_one(claim_id: str, tasks: BackgroundTasks) -> None:
     """Work one claim in a dispatch of its own, unless a run is going."""
-    start(tasks, 1, claim_id)
+    start(tasks, partial(api.create_dispatch, 1), 1, claim_id)
 
 
 @app.post("/claims/{claim_id}/resume", operation_id="resume_claim", status_code=202)

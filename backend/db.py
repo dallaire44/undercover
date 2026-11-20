@@ -59,6 +59,17 @@ claims = Table(
     Column("attempts", Integer, nullable=False),
     Column("run_id", String),
     Column("thread_id", String),
+    Column("copy_of", String),
+)
+held_out_claims = documents("held_out_claims", "claim_id")
+answers = Table(
+    "answers",
+    metadata,
+    Column("claim_set", String, primary_key=True),
+    Column("claim_id", String, primary_key=True),
+    Column("decision", String, nullable=False),
+    Column("payout", Float, nullable=False),
+    Column("tiny", Boolean, nullable=False),
 )
 policies = documents("policies", "policy_id")
 customers = documents("customers", "customer_id")
@@ -191,14 +202,29 @@ def load(name: str) -> Any:
     return json.loads((DATA / f"{name}.json").read_text(encoding="utf-8"))
 
 
+ANSWER_COLUMNS = ("claim_id", "decision", "payout", "tiny")
+ANSWER_KEYS = {"evaluation": "evals/decisions", "held_out": "evals/held_out_decisions"}
+
+
 def seed(conn: Connection) -> None:
-    """Copy the claims, policies, customers and handlers from `data/`."""
+    """Copy in `data/`: the queue, the records, the held-out claims, the answer key."""
     for name, table in DOCUMENTS.items():
         key = next(iter(table.primary_key)).name
         rows = [{key: record[key], "doc": record} for record in load(name)]
         if table is claims:
             rows = [{**r, "status": "waiting", "attempts": 0} for r in rows]
         conn.execute(insert(table), rows)
+    held_out = load("evals/held_out_claims")
+    conn.execute(
+        insert(held_out_claims),
+        [{"claim_id": c["claim_id"], "doc": c} for c in held_out],
+    )
+    for claim_set, name in ANSWER_KEYS.items():
+        rows = [
+            {"claim_set": claim_set, **{k: row[k] for k in ANSWER_COLUMNS}}
+            for row in load(name)
+        ]
+        conn.execute(insert(answers), rows)
 
 
 def init() -> None:

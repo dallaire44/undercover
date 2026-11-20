@@ -386,7 +386,8 @@ def attempt(claim_id: str, thread_id: str, run_id: str | None) -> str:
     """Work or carry on a claim on its thread, and return it to the queue on failure.
 
     A rate limit or a timeout is raised with the claim still in progress, so a
-    retry carries it on from its last step.
+    retry carries it on from its last step. An evaluation's copy held for a
+    sign-off counts as finished, so its saved progress is cleared.
     """
     problem = "The agent finished without completing the claim."
     try:
@@ -396,6 +397,8 @@ def attempt(claim_id: str, thread_id: str, run_id: str | None) -> str:
     except Exception as error:  # noqa: BLE001
         problem = f"The agent failed: {error}"[:ERROR_CHARS]
     record = api.get_claim(claim_id)
+    if record["copy_of"] and record["status"] == "awaiting_sign_off":
+        saver().delete_thread(thread_id)
     if record["status"] != "in_progress":
         api.add_step(claim_id, thread_id, "message", "Agent finished")
         return f"{claim_id}: {outcome(record)}"

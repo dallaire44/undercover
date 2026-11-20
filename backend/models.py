@@ -11,6 +11,7 @@ Verdict = Literal["approve", "decline", "refer"]
 RunState = Literal["running", "finished", "stopped"]
 RunKind = Literal["dispatch", "evaluation"]
 ClaimSet = Literal["queue", "evaluation", "held_out"]
+LabelledSet = Literal["evaluation", "held_out"]
 Benefit = Literal[
     "trip_cancellation",
     "trip_interruption",
@@ -33,6 +34,7 @@ class ClaimCore(BaseModel):
     attempts: int
     run_id: str | None
     thread_id: str | None
+    copy_of: str | None = Field(description="For an evaluation's copy, the claim")
 
 
 class ClaimSummary(ClaimCore):
@@ -266,3 +268,44 @@ class Payout(BaseModel):
     calculation: list[PayoutStep]
     payout: float
     needs_sign_off: bool
+
+
+class EvaluationStart(DispatchStart):
+    claim_set: LabelledSet
+    tiny: bool = Field(description="Only the set's five tiny claims")
+
+
+class EvaluationRequest(EvaluationStart):
+    model: str
+    reasoning_effort: str
+
+
+class ScoredClaim(BaseModel):
+    claim_id: str
+    copy_of: str
+    status: State
+    decision: Verdict = Field(description="The agent's, a referral if it decided none")
+    payout: float
+    handler_decision: Verdict
+    handler_payout: float
+    decision_right: bool
+    right: bool = Field(description="The decision matches and the payout is within $1")
+    mistake_cost: float
+    cost: float
+    seconds: float
+
+
+class Scores(BaseModel):
+    decision_accuracy: float
+    accuracy: float
+    cost_of_mistakes: float
+    straight_through: float
+    cost_per_claim: float
+    seconds_per_claim: float
+    run_seconds: float
+
+
+class Evaluation(BaseModel):
+    run: Run
+    scores: Scores
+    claims: list[ScoredClaim]

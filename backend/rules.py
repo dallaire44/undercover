@@ -88,6 +88,8 @@ def pay_claim(conn: Connection, claim_id: str, request: PaymentRequest) -> Claim
 def sign_off(conn: Connection, claim_id: str, request: SignOffRequest) -> SignOff:
     """Record a handler's sign-off, so the agent can pick the claim up and pay it."""
     handler = records.document(conn, "handlers", request.handler_id)
+    if records.claim_row(conn, claim_id)["copy_of"]:
+        raise Refused("An evaluation's copy can't be signed off")
     if records.status(conn, claim_id) != "awaiting_sign_off":
         raise Refused(f"{claim_id} is not waiting for sign-off")
     signed = SignOff(

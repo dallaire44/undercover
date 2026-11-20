@@ -115,6 +115,19 @@ def create_dispatch(agents: int, model: str, reasoning_effort: str) -> Json:
     return send("POST", "/api/dispatches", json=body).json()
 
 
+def create_evaluation(
+    agents: int, claim_set: str, tiny: bool, model: str, reasoning_effort: str
+) -> Json:
+    body = {
+        "agents": agents,
+        "claim_set": claim_set,
+        "tiny": tiny,
+        "model": model,
+        "reasoning_effort": reasoning_effort,
+    }
+    return send("POST", "/api/evaluations", json=body).json()
+
+
 def get_latest_run() -> Json | None:
     return send("GET", "/api/runs/latest").json()
 

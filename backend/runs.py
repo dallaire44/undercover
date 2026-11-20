@@ -109,22 +109,29 @@ def get(conn: Connection, run_id: str) -> Run:
     )
 
 
+def ids_of(conn: Connection, *kinds: RunKind) -> list[str]:
+    """Return the ids of the runs of the kinds given, newest first."""
+    query = select(runs.c.run_id).where(runs.c.kind.in_(kinds))
+    return list(conn.scalars(query.order_by(runs.c.run_id.desc())))
+
+
 def latest(conn: Connection, *kinds: RunKind) -> Run | None:
     """Return the latest run of the kinds given, or None before the first."""
-    query = select(runs.c.run_id).where(runs.c.kind.in_(kinds))
-    found = conn.scalar(query.order_by(runs.c.run_id.desc()).limit(1))
-    return get(conn, found) if found else None
+    found = ids_of(conn, *kinds)
+    return get(conn, found[0]) if found else None
 
 
 def claims_to_work(conn: Connection, run_id: str) -> list[ClaimSummary]:
     """Return the claims a run still has to work: in progress first, then waiting.
 
-    Each group is oldest submitted first.
+    A dispatch works the queue, and an evaluation its own copies. Each group is
+    oldest submitted first.
     """
-    row(conn, run_id)
-    left = [
-        c for c in records.list_claims(conn) if c.status in ("in_progress", "waiting")
-    ]
+    if row(conn, run_id)["kind"] == "dispatch":
+        found = records.list_claims(conn)
+    else:
+        found = records.in_run(conn, run_id)
+    left = [c for c in found if c.status in ("in_progress", "waiting")]
     return sorted(
         left, key=lambda c: (c.status != "in_progress", c.submitted_on, c.claim_id)
     )

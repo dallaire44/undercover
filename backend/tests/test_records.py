@@ -20,6 +20,7 @@ def test_list_claims(client):
         "attempts",
         "run_id",
         "thread_id",
+        "copy_of",
         "decision",
         "payout",
     }

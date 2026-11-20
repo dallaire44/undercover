@@ -12,6 +12,7 @@ from typing import Any
 import httpx
 
 from backend.errors import Refused
+from backend.models import LabelledSet
 
 log = logging.getLogger(__name__)
 NOT_RUNNING = "The agent's service is not running"
@@ -37,6 +38,10 @@ def post(path: str, body: dict[str, Any] | None) -> None:
 
 def start_dispatch(agents: int) -> None:
     post("/dispatches", {"agents": agents})
+
+
+def start_evaluation(agents: int, claim_set: LabelledSet, tiny: bool) -> None:
+    post("/evaluations", {"agents": agents, "claim_set": claim_set, "tiny": tiny})
 
 
 def work_one(claim_id: str) -> None:

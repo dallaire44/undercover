@@ -35,3 +35,10 @@ def test_the_dispatcher_reaches_the_claim_agent_only_through_work_claim():
     assert "agent.tools" not in text
     assert not re.search(r"from agent import .*\btools\b", text)
     assert set(re.findall(r"harness\.(\w+)", text)) == {"work_claim"}
+
+
+def test_the_agent_never_asks_for_the_answer_key():
+    for path in AGENT.glob("*.py"):
+        text = path.read_text(encoding="utf-8")
+        assert "/api/evaluations/{" not in text, path.name
+        assert not re.search(r"[.\"'/]answers\b|\banswers\.", text), path.name

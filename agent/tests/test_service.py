@@ -39,6 +39,8 @@ def test_one_run_at_a_time(client, monkeypatch):
         refused = agent_service.post("/dispatches", json={"agents": 3})
         assert (refused.status_code, refused.json()["detail"]) == (409, service.BUSY)
         assert agent_service.post("/claims/CLM-1001/work").status_code == 409
+        evaluation = {"agents": 5, "claim_set": "held_out", "tiny": True}
+        assert agent_service.post("/evaluations", json=evaluation).status_code == 409
     client.post(f"/api/runs/{run['run_id']}/finish")
     assert agent_service.post("/claims/CLM-1001/work").status_code == 202
     assert dispatched[-1][1:] == (1, service.RESUMING, "CLM-1001")
