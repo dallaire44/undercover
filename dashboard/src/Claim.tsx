@@ -28,7 +28,13 @@ export function Claim({ claimId }: Readonly<{ claimId: string }>) {
         <span className="num">{claim.claim_id}</span>{" "}
         <StatusChip state={claim.status} />
       </h1>
-      {claim.status === "waiting" && (
+      {claim.copy_of && (
+        <p className="copy-banner">
+          A copy of {claim.copy_of} in evaluation{" "}
+          <a href={`#/scoreboard/${String(claim.run_id)}`}>{claim.run_id}</a>
+        </p>
+      )}
+      {claim.status === "waiting" && !claim.copy_of && (
         <p>
           <button
             type="button"
@@ -55,7 +61,9 @@ export function Claim({ claimId }: Readonly<{ claimId: string }>) {
           <dd className="num">{money(claim.amount_claimed)}</dd>
         </dl>
       </section>
-      <SignOffPanel claim={claim} onSignedOff={() => void reload()} />
+      {!claim.copy_of && (
+        <SignOffPanel claim={claim} onSignedOff={() => void reload()} />
+      )}
       <Decision claim={claim} />
       <Steps claimId={claimId} working={claim.status === "in_progress"} />
       <section className="panel" aria-labelledby="story-title">

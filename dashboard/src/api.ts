@@ -13,6 +13,7 @@ export interface ClaimSummary {
   attempts: number;
   run_id: string | null;
   thread_id: string | null;
+  copy_of: string | null;
   decision: Verdict | null;
   payout: number | null;
 }
@@ -82,6 +83,39 @@ export interface Run {
   seconds: number;
 }
 
+export type LabelledSet = "evaluation" | "held_out";
+
+export interface ScoredClaim {
+  claim_id: string;
+  copy_of: string;
+  status: State;
+  decision: Verdict;
+  payout: number;
+  handler_decision: Verdict;
+  handler_payout: number;
+  decision_right: boolean;
+  right: boolean;
+  mistake_cost: number;
+  cost: number;
+  seconds: number;
+}
+
+export interface Scores {
+  decision_accuracy: number;
+  accuracy: number;
+  cost_of_mistakes: number;
+  straight_through: number;
+  cost_per_claim: number;
+  seconds_per_claim: number;
+  run_seconds: number;
+}
+
+export interface Evaluation {
+  run: Run;
+  scores: Scores;
+  claims: ScoredClaim[];
+}
+
 export interface ClaimDetail {
   claim_id: string;
   summary: string;
@@ -93,6 +127,7 @@ export interface ClaimDetail {
   attempts: number;
   run_id: string | null;
   thread_id: string | null;
+  copy_of: string | null;
   policy_id: string;
   customer_id: string;
   incident_date: string;
@@ -192,3 +227,11 @@ export const getLatestDispatch = () =>
   get<Run | null>("/api/dispatches/latest");
 export const signOff = (id: string, handlerId: string) =>
   post(`/api/claims/${id}/sign-off`, { handler_id: handlerId });
+export const startEvaluation = (
+  agents: number,
+  claimSet: LabelledSet,
+  tiny: boolean,
+) => start("/api/evaluations/start", { agents, claim_set: claimSet, tiny });
+export const listEvaluations = () => get<Evaluation[]>("/api/evaluations");
+export const getEvaluation = (runId: string) =>
+  get<Evaluation>(`/api/evaluations/${runId}`);

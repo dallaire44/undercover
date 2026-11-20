@@ -1,4 +1,4 @@
-import type { State, Verdict } from "./api";
+import type { Run, State, Verdict } from "./api";
 
 const dollars = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -6,6 +6,8 @@ const dollars = new Intl.NumberFormat("en-US", {
 });
 
 export const money = (amount: number) => dollars.format(amount);
+
+export const percent = (share: number) => `${String(Math.round(share * 100))}%`;
 
 /** A time in whole seconds, such as "45 s" or "1 min 12 s". */
 export function duration(seconds: number) {
@@ -50,3 +52,21 @@ export const VERDICTS: Record<Verdict, string> = {
 
 export const titleCase = (snake: string) =>
   snake.charAt(0).toUpperCase() + snake.slice(1).replaceAll("_", " ");
+
+export const SETS: Record<Run["claim_set"], string> = {
+  queue: "The queue",
+  evaluation: "Evaluation set",
+  held_out: "Held-out set",
+};
+
+export const RUN_STATES: Record<Run["status"], string> = {
+  running: "Running",
+  finished: "Finished",
+  stopped: "Stopped",
+};
+
+export const setName = (run: Run) =>
+  `${SETS[run.claim_set]}${run.tiny ? ", tiny" : ""}`;
+
+export const modelName = (run: Run) =>
+  `${run.model}, ${run.reasoning_effort} effort`;

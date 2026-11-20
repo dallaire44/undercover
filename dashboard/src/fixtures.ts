@@ -2,6 +2,7 @@ import { vi } from "vitest";
 import type {
   ClaimDetail,
   ClaimSummary,
+  Evaluation,
   Handler,
   History,
   Policy,
@@ -20,6 +21,7 @@ export const waitingClaim: ClaimSummary = {
   attempts: 0,
   run_id: null,
   thread_id: null,
+  copy_of: null,
   decision: null,
   payout: null,
 };
@@ -183,4 +185,55 @@ export const finishedRun: Run = {
     needs_handler: ["CLM-1009"],
     in_progress: ["CLM-1001"],
   },
+};
+
+export const evaluation: Evaluation = {
+  run: {
+    ...finishedRun,
+    run_id: "RUN-0007",
+    kind: "evaluation",
+    claim_set: "held_out",
+    tiny: true,
+    agents: 5,
+    claims: [],
+  },
+  scores: {
+    decision_accuracy: 0.8,
+    accuracy: 0.6,
+    cost_of_mistakes: 1550,
+    straight_through: 0.8,
+    cost_per_claim: 0.02,
+    seconds_per_claim: 42,
+    run_seconds: 75,
+  },
+  claims: [
+    {
+      claim_id: "RUN-0007-CLM-1104",
+      copy_of: "CLM-1104",
+      status: "decided",
+      decision: "approve",
+      payout: 250,
+      handler_decision: "approve",
+      handler_payout: 250,
+      decision_right: true,
+      right: true,
+      mistake_cost: 0,
+      cost: 0.02,
+      seconds: 40,
+    },
+    {
+      claim_id: "RUN-0007-CLM-1114",
+      copy_of: "CLM-1114",
+      status: "decided",
+      decision: "refer",
+      payout: 0,
+      handler_decision: "decline",
+      handler_payout: 0,
+      decision_right: false,
+      right: false,
+      mistake_cost: 50,
+      cost: 0.03,
+      seconds: 44,
+    },
+  ],
 };

@@ -1,7 +1,14 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { App } from "./App";
-import { detail, history, policy, stubApi, waitingClaim } from "./fixtures";
+import {
+  detail,
+  evaluation,
+  history,
+  policy,
+  stubApi,
+  waitingClaim,
+} from "./fixtures";
 
 afterEach(() => {
   cleanup();
@@ -56,4 +63,21 @@ it("shows the instructions page and links to it", async () => {
       .getByRole("link", { name: "Agent instructions" })
       .getAttribute("href"),
   ).toBe("#/instructions");
+});
+
+it("opens the scoreboard and an evaluation from the hash", async () => {
+  stubApi({
+    "/api/evaluations": [evaluation],
+    "/api/evaluations/RUN-0007": evaluation,
+  });
+  window.location.hash = "#/scoreboard";
+  render(<App />);
+  expect(
+    await screen.findByRole("heading", { name: "Scoreboard" }),
+  ).toBeDefined();
+  expect(
+    screen.getByRole("link", { name: "Scoreboard" }).getAttribute("href"),
+  ).toBe("#/scoreboard");
+  window.location.hash = "#/scoreboard/RUN-0007";
+  expect(await screen.findByText("Evaluation RUN-0007")).toBeDefined();
 });

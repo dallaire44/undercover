@@ -365,19 +365,25 @@ Changes while building Phase 4:
 
 Success criteria:
 
-- [ ] Vitest:
-  - [ ] the scoreboard lists evaluations newest first, with percentages such as "80%" and money such as "$1,550.00"
-  - [ ] the start form sends the set, `tiny` and N
-  - [ ] an evaluation's page marks a miss with "Miss" and links each copy
-  - [ ] a copy's claim page has no sign-off form and no "Run the agent"
-- [ ] E2E:
-  - [ ] "Start an evaluation" with the held-out set, tiny, and 5 claim agents reaches the stand-in as `POST /evaluations` with `{"agents":5,"claim_set":"held_out","tiny":true}`
-  - [ ] an evaluation played out through the API, as `e2e/run.spec.ts` plays out a dispatch, shows on the scoreboard with every measure
-  - [ ] its page shows the handler's and the agent's decisions with the misses marked
-  - [ ] the queue page's counts are the same before and after
-- [ ] Checked in the browser with the Playwright MCP server: the scoreboard, an evaluation and a copy's page, in light and dark mode, at 1280 px wide, with screenshots reviewed.
-- [ ] Code: the scoreboard's calls are in `dashboard/src/api.ts`. Each page is its own module. The brand's colors come from the existing variables.
-- [ ] The pre-commit checks pass and the phase is committed.
+- [x] Vitest:
+  - [x] the scoreboard lists evaluations newest first, with percentages such as "80%" and money such as "$1,550.00"
+  - [x] the start form sends the set, `tiny` and N
+  - [x] an evaluation's page marks a miss with "Miss" and links each copy
+  - [x] a copy's claim page has no sign-off form and no "Run the agent"
+- [x] E2E:
+  - [x] "Start an evaluation" with the held-out set, tiny, and 5 claim agents reaches the stand-in as `POST /evaluations` with `{"agents":5,"claim_set":"held_out","tiny":true}`
+  - [x] an evaluation played out through the API, as `e2e/run.spec.ts` plays out a dispatch, shows on the scoreboard with every measure
+  - [x] its page shows the handler's and the agent's decisions with the misses marked
+  - [x] the queue page's counts are the same before and after
+- [x] Checked in the browser with the Playwright MCP server: the scoreboard, an evaluation and a copy's page, in light and dark mode, at 1280 px wide, with screenshots reviewed.
+- [x] Code: the scoreboard's calls are in `dashboard/src/api.ts`. Each page is its own module. The brand's colors come from the existing variables.
+- [x] The pre-commit checks pass and the phase is committed.
+
+Changes while building Phase 5:
+
+- "Claim agents at once" is one component, `AgentsField.tsx`, used by the run panel and the scoreboard. The names of the sets and run states live in `format.ts`, beside the claim states.
+- The queue table's rule that its second column is at least 15rem wide made the scoreboard scroll at 1280 px, so the scoreboard's and an evaluation's tables have a class of their own, `scores`.
+- The header has one more link, so the keyboard test in `e2e/theme.spec.ts` tabs five times to reach the dark-mode slider.
 
 ## Phase 6: The docs, and live runs on Supabase
 

@@ -395,14 +395,15 @@ pre {
   }
 }
 
-.run form {
+.run form,
+.start form {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 1rem;
 }
 
-.run input {
+.agents input {
   width: 5rem;
   margin-left: 0.4rem;
   padding: 0.3rem 0.5rem;
@@ -437,4 +438,43 @@ pre {
   border-left: 4px solid var(--alert);
   padding-left: 0.6rem;
   font-weight: 600;
+}
+
+.miss-chip {
+  background: var(--alert);
+  color: var(--alert-ink);
+}
+
+.copy-banner {
+  border-left: 4px solid var(--in-progress);
+  padding-left: 0.6rem;
+}
+
+.start label {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.start select {
+  padding: 0.3rem 0.5rem;
+  font: inherit;
+  border: 0;
+  border-radius: 0.5rem;
+  background: var(--bg);
+  color: var(--ink);
+}
+
+.table-panel > h2,
+.table-panel > p {
+  padding: 0 0.75rem;
+}
+
+.scores td:nth-child(2) {
+  min-width: 0;
+}
+
+.scores th,
+.scores td {
+  padding: 0.6rem 0.5rem;
 }

@@ -61,7 +61,7 @@ for (const scheme of ["light", "dark"] as const) {
 test("the keyboard reaches the slider and Space flips it", async ({ page }) => {
   await page.emulateMedia({ colorScheme: "light" });
   await page.goto("/");
-  for (let tab = 0; tab < 4; tab++) {
+  for (let tab = 0; tab < 5; tab++) {
     await page.keyboard.press("Tab");
   }
   await expect(slider(page)).toBeFocused();

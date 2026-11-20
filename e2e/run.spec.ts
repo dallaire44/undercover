@@ -1,4 +1,9 @@
-import { expect, test, type APIRequestContext } from "@playwright/test";
+import {
+  expect,
+  test,
+  type APIRequestContext,
+  type Page,
+} from "@playwright/test";
 import { AGENT } from "../playwright.config";
 import { expectCountsMatchChips } from "./helpers";
 
@@ -109,4 +114,82 @@ test("a claim that fails twice needs a handler", async ({ page, request }) => {
   const cells = page.getByRole("row", { name: /CLM-1006/ }).getByRole("cell");
   await expect(cells.nth(5)).toHaveText("Needs a handler");
   await expectCountsMatchChips(page);
+});
+
+test("an evaluation started on the scoreboard reaches the agent", async ({
+  page,
+  request,
+}) => {
+  await page.goto("/");
+  await page.getByRole("link", { name: "Scoreboard" }).click();
+  await page.getByLabel("Set").selectOption({ label: "Held-out set" });
+  await page.getByLabel("Only the five tiny claims").check();
+  await page.getByLabel("Claim agents at once").fill("5");
+  await page.getByRole("button", { name: "Start an evaluation" }).click();
+  await expect
+    .poll(
+      async () =>
+        (await (await request.get(`${AGENT}/calls`)).json()) as string[],
+    )
+    .toContain(
+      'POST /evaluations {"agents":5,"claim_set":"held_out","tiny":true}',
+    );
+});
+
+async function counts(page: Page) {
+  await page.goto("/");
+  return page.getByRole("list", { name: "Claims by status" }).textContent();
+}
+
+test("an evaluation shows on the scoreboard with every measure", async ({
+  page,
+  request,
+}) => {
+  const before = await counts(page);
+  const created = await request.post("/api/evaluations", {
+    data: { ...DISPATCH, agents: 5, claim_set: "evaluation", tiny: true },
+  });
+  const runId = ((await created.json()) as { run_id: string }).run_id;
+  const decisions: [string, string, number][] = [
+    ["CLM-1007", "approve", 50],
+    ["CLM-1015", "refer", 0],
+    ["CLM-1017", "refer", 0],
+    ["CLM-1020", "approve", 240],
+    ["CLM-1021", "decline", 0],
+  ];
+  for (const [claimId, decision, payout] of decisions) {
+    const copy = `${runId}-${claimId}`;
+    await request.post(`/api/runs/${runId}/claims/${copy}`);
+    await request.post(`/api/claims/${copy}/decision`, {
+      data: { decision, payout, reason: "r", policy_section: "s" },
+    });
+  }
+  await request.post(`/api/runs/${runId}/finish`);
+
+  await page.goto("/#/scoreboard");
+  const row = page.getByRole("row", { name: new RegExp(runId) });
+  await expect(row.getByRole("cell")).toHaveText([
+    runId,
+    "Evaluation set, tiny",
+    "5",
+    "openai/gpt-6-luna, low effort",
+    "Finished",
+    "60%",
+    "60%",
+    "$1,550.00",
+    "60%",
+    "$0.00",
+    "0 s",
+    /^\d+ s$/,
+  ]);
+  await row.getByRole("link", { name: runId }).click();
+  await expect(page.getByText(`Evaluation ${runId}`)).toBeVisible();
+  const misses = page.getByRole("row").filter({ hasText: "Miss" });
+  await expect(misses).toHaveCount(2);
+  await expect(misses.first()).toContainText("CLM-1015");
+  await page.getByRole("link", { name: "CLM-1021" }).click();
+  await expect(
+    page.getByText(`A copy of CLM-1021 in evaluation ${runId}`),
+  ).toBeVisible();
+  expect(await counts(page)).toBe(before);
 });

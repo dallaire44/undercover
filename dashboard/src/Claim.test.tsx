@@ -123,3 +123,34 @@ it("shows the sign-off panel for a payment on hold", async () => {
   render(<Claim claimId="CLM-1001" />);
   expect(await screen.findByText("Payment on hold")).toBeDefined();
 });
+
+it("shows an evaluation's copy with no sign-off form and no run button", async () => {
+  const copyId = "RUN-0007-CLM-1001";
+  const copy = {
+    ...decidedDetail,
+    claim_id: copyId,
+    copy_of: "CLM-1001",
+    run_id: "RUN-0007",
+    status: "awaiting_sign_off",
+    payment: null,
+    sign_off: null,
+  };
+  stubApi({ [`/api/claims/${copyId}`]: copy, "/api/handlers": [], ...related });
+  render(<Claim claimId={copyId} />);
+  const banner = await screen.findByText(/^A copy of CLM-1001 in evaluation/);
+  expect(banner.textContent).toBe("A copy of CLM-1001 in evaluation RUN-0007");
+  expect(
+    screen.getByRole("link", { name: "RUN-0007" }).getAttribute("href"),
+  ).toBe("#/scoreboard/RUN-0007");
+  expect(screen.queryByText("Payment on hold")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Run the agent" })).toBeNull();
+
+  cleanup();
+  stubApi({
+    [`/api/claims/${copyId}`]: { ...detail, ...copy, status: "waiting" },
+    ...related,
+  });
+  render(<Claim claimId={copyId} />);
+  await screen.findByText(/^A copy of CLM-1001/);
+  expect(screen.queryByRole("button", { name: "Run the agent" })).toBeNull();
+});

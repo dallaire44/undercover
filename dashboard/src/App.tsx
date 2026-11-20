@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
 import { listClaims } from "./api";
 import { Claim } from "./Claim";
+import { EvaluationPage } from "./Evaluation";
 import { Instructions } from "./Instructions";
 import { ModeSwitch } from "./ModeSwitch";
 import { Queue } from "./Queue";
+import { Scoreboard } from "./Scoreboard";
 import { useLoad } from "./useLoad";
 
 function useHash() {
@@ -30,6 +32,9 @@ function QueuePage() {
 function Page({ hash }: Readonly<{ hash: string }>) {
   const claimId = /^#\/claims\/(.+)$/.exec(hash)?.[1];
   if (claimId) return <Claim key={claimId} claimId={claimId} />;
+  const runId = /^#\/scoreboard\/(.+)$/.exec(hash)?.[1];
+  if (runId) return <EvaluationPage key={runId} runId={runId} />;
+  if (hash === "#/scoreboard") return <Scoreboard />;
   return hash === "#/instructions" ? <Instructions /> : <QueuePage />;
 }
 
@@ -44,6 +49,7 @@ export function App() {
         <span className="tagline">Every claim, read closely.</span>
         <nav>
           <a href="#/">Queue</a>
+          <a href="#/scoreboard">Scoreboard</a>
           <a href="#/instructions">Agent instructions</a>
           <ModeSwitch
             label="Dark mode"

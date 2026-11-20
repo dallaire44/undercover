@@ -6,12 +6,10 @@ import {
   type RunClaim,
   type RunSummary,
 } from "./api";
+import { AgentsField, FIRST_AGENTS } from "./AgentsField";
 import { StatusChip } from "./Chips";
 import { duration, money } from "./format";
 import { useLoad } from "./useLoad";
-
-const FIRST_AGENTS = 3;
-const MOST_AGENTS = 25;
 
 const agentsAtOnce = (count: number) =>
   `${String(count)} claim agent${count === 1 ? "" : "s"} at once`;
@@ -90,19 +88,7 @@ export function RunPanel({
           });
         }}
       >
-        <label>
-          Claim agents at once{" "}
-          <input
-            type="number"
-            min={1}
-            max={MOST_AGENTS}
-            value={agents}
-            onChange={(event) => {
-              const chosen = Number(event.target.value);
-              setAgents(Math.min(MOST_AGENTS, Math.max(1, chosen)));
-            }}
-          />
-        </label>
+        <AgentsField agents={agents} onChange={setAgents} />
         <button type="submit" disabled={running || toWork === 0}>
           Dispatch the queue
         </button>
